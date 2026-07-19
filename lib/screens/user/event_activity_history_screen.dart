@@ -80,7 +80,7 @@ class _EventActivityHistoryScreenState extends State<EventActivityHistoryScreen>
       final token = prefs.getString('token');
 
       // --- URL API dengan Event ID ---
-      String url = 'https://pltuapp.potydev.cloud/api/v1/activities/history?page=$_currentPage&limit=10&event=${widget.eventId}';
+      String url = '${ApiHelper.baseUrl}/activities/history?page=$_currentPage&limit=10&event=${widget.eventId}';
 
       if (_selectedStatus != 'Semua') {
         url += '&status=${_selectedStatus.toUpperCase()}';

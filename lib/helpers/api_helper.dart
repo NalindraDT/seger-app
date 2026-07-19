@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'navigation_service.dart';
 
 class ApiHelper {
+  static const String baseUrl = 'http://31.97.107.17:3001/api/v1';
+
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

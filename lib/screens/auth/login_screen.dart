@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/screens/user/dashboard_screen.dart';
 import 'package:pltuapp/screens/auth/forgot_password_screen.dart';
+import 'package:pltuapp/helpers/api_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -61,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/auth/login'),
+        Uri.parse('${ApiHelper.baseUrl}/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _emailController.text,

@@ -38,7 +38,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       final myUserId = prefs.getString('userId');
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/leaderboard/annual?page=$_currentPage&limit=10'),
+        Uri.parse('${ApiHelper.baseUrl}/leaderboard/annual?page=$_currentPage&limit=10'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

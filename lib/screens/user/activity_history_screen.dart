@@ -39,7 +39,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      String url = 'https://pltuapp.potydev.cloud/api/v1/activities/history?page=$_currentPage&limit=10';
+      String url = '${ApiHelper.baseUrl}/activities/history?page=$_currentPage&limit=10';
 
       if (_selectedStatus != 'Semua') {
         url += '&status=${_selectedStatus.toUpperCase()}';

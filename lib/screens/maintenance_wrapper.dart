@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:pltuapp/helpers/api_helper.dart';
 
 class MaintenanceWrapper extends StatefulWidget {
   final Widget child;
@@ -47,7 +48,7 @@ class _MaintenanceWrapperState extends State<MaintenanceWrapper> with WidgetsBin
 
       // Tambahkan timeout 10 detik agar tidak nge-hang jika emulator no internet
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/settings/maintenance'),
+        Uri.parse('${ApiHelper.baseUrl}/settings/maintenance'),
       ).timeout(const Duration(seconds: 10));
 
       print("✅ [CCTV 4] API Menjawab! Status Code: ${response.statusCode}");

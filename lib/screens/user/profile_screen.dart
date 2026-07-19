@@ -110,7 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // 1. Fetch Profile Data
       final profileRes = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/users/profile'),
+        Uri.parse('${ApiHelper.baseUrl}/users/profile'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(profileRes.statusCode)) {
@@ -130,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // 2. Fetch Total Activities
       final historyRes = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/activities/history?page=1&limit=1'),
+        Uri.parse('${ApiHelper.baseUrl}/activities/history?page=1&limit=1'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(historyRes.statusCode)) return;
@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // 3. Fetch Badges
       final badgesRes = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/badges/me'),
+        Uri.parse('${ApiHelper.baseUrl}/badges/me'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(badgesRes.statusCode)) return;
@@ -156,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // 4. Fetch Streak Data
       final streakRes = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/streak/me'),
+        Uri.parse('${ApiHelper.baseUrl}/streak/me'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(streakRes.statusCode)) return;
@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final token = prefs.getString('token');
 
       final response = await http.patch(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/users/profile'),
+        Uri.parse('${ApiHelper.baseUrl}/users/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -218,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      var uri = Uri.parse('https://pltuapp.potydev.cloud/api/v1/users/profile/photo');
+      var uri = Uri.parse('${ApiHelper.baseUrl}/users/profile/photo');
       var request = http.MultipartRequest('PUT', uri);
 
       request.headers.addAll({
@@ -310,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/auth/forgot-password'),
+        Uri.parse('${ApiHelper.baseUrl}/auth/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _email}),
       );
@@ -337,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/auth/reset-password'),
+        Uri.parse('${ApiHelper.baseUrl}/auth/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _email,

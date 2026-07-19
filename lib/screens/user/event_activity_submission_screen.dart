@@ -100,7 +100,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       final token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/activities/types'),
+        Uri.parse('${ApiHelper.baseUrl}/activities/types'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -169,7 +169,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       final token = prefs.getString('token');
 
       // URL DINAMIS MENGGUNAKAN EVENT ID
-      var uri = Uri.parse('https://pltuapp.potydev.cloud/api/v1/events/${widget.eventId}/activities/submit');
+      var uri = Uri.parse('${ApiHelper.baseUrl}/events/${widget.eventId}/activities/submit');
       var request = http.MultipartRequest('POST', uri);
 
       request.headers['Authorization'] = 'Bearer $token';

@@ -56,7 +56,7 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
       final myUserId = prefs.getString('userId');
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/leaderboard/events/${widget.eventId}?page=$_currentPage&limit=15'), // Limit sedikit dibesarkan
+        Uri.parse('${ApiHelper.baseUrl}/leaderboard/events/${widget.eventId}?page=$_currentPage&limit=15'), // Limit sedikit dibesarkan
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

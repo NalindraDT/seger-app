@@ -86,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 1. Fetch Data Profile
       final profileResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/users/profile'),
+        Uri.parse('${ApiHelper.baseUrl}/users/profile'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(profileResponse)) return;
@@ -106,7 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 2. Fetch Data Events
       final eventResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/events'),
+        Uri.parse('${ApiHelper.baseUrl}/events'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(eventResponse)) return;
@@ -120,7 +120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 3. Fetch Data Badges (Hanya untuk Level Badge)
       final badgeResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/badges/me'),
+        Uri.parse('${ApiHelper.baseUrl}/badges/me'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(badgeResponse)) return;
@@ -135,7 +135,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 4. Fetch Data History untuk HARI INI
       final historyResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/activities/history?page=1&limit=50'),
+        Uri.parse('${ApiHelper.baseUrl}/activities/history?page=1&limit=50'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(historyResponse)) return;
@@ -166,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 5. Fetch Data Streak (Termasuk Lencana Streak)
       final streakResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/streak/me'),
+        Uri.parse('${ApiHelper.baseUrl}/streak/me'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(streakResponse)) return;

@@ -96,7 +96,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
       final token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/activities/types'),
+        Uri.parse('${ApiHelper.baseUrl}/activities/types'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -164,7 +164,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      var uri = Uri.parse('https://pltuapp.potydev.cloud/api/v1/activities/submit');
+      var uri = Uri.parse('${ApiHelper.baseUrl}/activities/submit');
       var request = http.MultipartRequest('POST', uri);
 
       request.headers['Authorization'] = 'Bearer $token';

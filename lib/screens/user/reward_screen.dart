@@ -63,7 +63,7 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
       _currentPoints = prefs.getInt('points') ?? 0;
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/rewards'),
+        Uri.parse('${ApiHelper.baseUrl}/rewards'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -101,7 +101,7 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
       final token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/rewards/redemptions?page=$_historyCurrentPage&limit=10'),
+        Uri.parse('${ApiHelper.baseUrl}/rewards/redemptions?page=$_historyCurrentPage&limit=10'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -148,7 +148,7 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
       final token = prefs.getString('token');
 
       final response = await http.post(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/rewards/redeem'),
+        Uri.parse('${ApiHelper.baseUrl}/rewards/redeem'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

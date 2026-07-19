@@ -76,7 +76,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       // 1. Fetch Event Detail
       final eventResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/events/${widget.eventId}'),
+        Uri.parse('${ApiHelper.baseUrl}/events/${widget.eventId}'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -98,7 +98,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       // 2. Fetch Event Leaderboard
       final leadResponse = await http.get(
-        Uri.parse('https://pltuapp.potydev.cloud/api/v1/leaderboard/events/${widget.eventId}?page=1&limit=10'),
+        Uri.parse('${ApiHelper.baseUrl}/leaderboard/events/${widget.eventId}?page=1&limit=10'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
