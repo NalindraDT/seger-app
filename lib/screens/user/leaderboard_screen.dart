@@ -104,6 +104,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
+  String _getDepartmentName(dynamic item) {
+    if (item == null) return '';
+    return item['department_name'] ?? item['departmentName'] ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final topThree = _leaderboardItems.where((e) => e['rank'] <= 3).toList();
@@ -113,6 +118,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     String myRank = _currentUserStat?['rank']?.toString() ?? '#';
     String myName = _currentUserStat != null ? _currentUserStat!['full_name'] : 'Kamu';
     String myXp = _currentUserStat != null ? _currentUserStat!['xp'].toString() : '0';
+    String myDepartment = _getDepartmentName(_currentUserStat);
 
     // Logika Avatar User Login (Gunakan foto dari API, fallback ke UI Avatars)
     String? myProfilePhoto = _currentUserStat != null ? _currentUserStat!['profile_photo_url'] : null;
@@ -249,7 +255,24 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(myName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            myName,
+                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (myDepartment.isNotEmpty)
+                            Text(
+                              myDepartment,
+                              style: const TextStyle(color: Colors.white70, fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
                     ),
                     Text(myXp, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     const Text(' Exp', style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -304,6 +327,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget _buildPodiumItem(dynamic item, int rank, double height, Color themeColor, Color podiumColor, {bool hasCrown = false}) {
     String name = item['full_name'] ?? 'Unknown';
     String xp = item['xp'].toString();
+    String department = _getDepartmentName(item);
 
     // Logika Avatar untuk Podium
     String? profilePhoto = item['profile_photo_url'];
@@ -355,6 +379,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
         ),
+        if (department.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              department,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            ),
+          ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -385,6 +420,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget _buildListItem(dynamic item) {
     String name = item['full_name'] ?? 'Unknown';
     String xp = item['xp'].toString();
+    String department = _getDepartmentName(item);
 
     // Logika Avatar untuk List
     String? profilePhoto = item['profile_photo_url'];
@@ -412,7 +448,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                if (department.isNotEmpty)
+                  Text(
+                    department,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
           ),
           Text(xp, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           const Text(' Exp', style: TextStyle(color: Colors.grey, fontSize: 12)),

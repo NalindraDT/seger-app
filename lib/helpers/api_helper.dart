@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'navigation_service.dart';
 
 class ApiHelper {
-  static const String baseUrl = 'http://31.97.107.17:3001/api/v1';
+  static String get baseUrl {
+    final url = dotenv.env['API_BASE_URL'];
+    if (url == null || url.isEmpty) {
+      throw StateError('API_BASE_URL tidak ditemukan di file .env');
+    }
+    return url;
+  }
 
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();

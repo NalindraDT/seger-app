@@ -31,6 +31,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _todayActivities = 0;
 
   List<dynamic> _activeEvents = [];
+  final PageController _eventPageController = PageController(viewportFraction: 0.88);
+  int _currentEventPage = 0;
 
   // --- VARIABEL BADGE ---
   Map<String, dynamic>? _activeBadge;
@@ -54,6 +56,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _fetchDashboardData();
+  }
+
+  @override
+  void dispose() {
+    _eventPageController.dispose();
+    super.dispose();
   }
 
   Color _hexToColor(String hexString) {
@@ -557,59 +565,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
                   child: const Center(child: Text("Tidak ada event aktif saat ini", style: TextStyle(color: Colors.grey))),
                 )
-              else
-                ..._activeEvents.map((event) {
-                  Color eventColor = _hexToColor(event['color_theme'] ?? '#5D44F8');
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: eventColor.withOpacity(0.3), width: 1),
-                        boxShadow: [BoxShadow(color: eventColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: eventColor.withOpacity(0.1), shape: BoxShape.circle),
-                            child: Icon(Icons.emoji_events, color: eventColor)
+              else ...[
+                SizedBox(
+                  height: 190,
+                  child: PageView.builder(
+                    controller: _eventPageController,
+                    itemCount: _activeEvents.length,
+                    onPageChanged: (index) => setState(() => _currentEventPage = index),
+                    itemBuilder: (context, index) => _buildEventCard(_activeEvents[index]),
+                  ),
+                ),
+                if (_activeEvents.length > 1) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(_activeEvents.length, (index) {
+                      bool isActive = index == _currentEventPage;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: isActive ? 20 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: isActive ? primaryPurple : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(3),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(event['name'] ?? 'Event', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text('${_formatDate(event['start_at'])} - ${_formatDate(event['end_at'])}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => EventDetailScreen(eventId: event['id']),
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: eventColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
-                          ),
-                          child: const Text('Gabung', style: TextStyle(color: Colors.white, fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }),
+                  ),
+                ],
+              ],
 
               const SizedBox(height: 16),
 
@@ -748,6 +733,114 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 80),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // WIDGET CARD EVENT (BANNER + SWIPE, KLIK LANGSUNG MASUK EVENT)
+  // ===========================================================================
+  Widget _buildEventCard(dynamic event) {
+    Color eventColor = _hexToColor(event['color_theme'] ?? '#5D44F8');
+    String imageUrl = event['banner_image_url'] ?? '';
+    String status = (event['status'] ?? '').toString().toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => EventDetailScreen(eventId: event['id'])),
+          );
+          _fetchDashboardData();
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: double.infinity,
+            color: eventColor.withOpacity(0.15),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          color: eventColor.withOpacity(0.2),
+                          child: Icon(Icons.emoji_events, size: 48, color: eventColor),
+                        ),
+                      )
+                    : Container(
+                        color: eventColor.withOpacity(0.2),
+                        child: Icon(Icons.emoji_events, size: 48, color: eventColor),
+                      ),
+
+                // Gradient agar teks tetap terbaca di atas gambar
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
+                      stops: const [0.4, 1.0],
+                    ),
+                  ),
+                ),
+
+                if (status.isNotEmpty)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: status == 'ACTIVE' ? Colors.greenAccent.shade400 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.circle, size: 6, color: Colors.black87),
+                          const SizedBox(width: 4),
+                          Text(status, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event['name'] ?? 'Event',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_month, color: Colors.white70, size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_formatDate(event['start_at'])} - ${_formatDate(event['end_at'])}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

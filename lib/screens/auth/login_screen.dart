@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/screens/user/dashboard_screen.dart';
 import 'package:pltuapp/screens/auth/forgot_password_screen.dart';
+import 'package:pltuapp/screens/auth/register_screen.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -330,6 +331,29 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  final result = await Navigator.push<String>(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                                  );
+                                  if (result != null && mounted) {
+                                    _showTopNotification(result, isError: false);
+                                  }
+                                },
+                          child: const Text(
+                            'Belum punya akun? Daftar',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),

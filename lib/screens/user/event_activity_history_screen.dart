@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/helpers/activity_share_helper.dart';
+import 'package:pltuapp/models/activity_share_data.dart';
 
 class EventActivityHistoryScreen extends StatefulWidget {
   final String eventId;
@@ -320,10 +322,33 @@ class _EventActivityHistoryScreenState extends State<EventActivityHistoryScreen>
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text((item['status'] ?? 'UNKNOWN').toString().toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text((item['status'] ?? 'UNKNOWN').toString().toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+              ),
+              const SizedBox(height: 8),
+              Material(
+                color: widget.themeColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () {
+                    ActivityShareHelper.showShareSheet(
+                      context,
+                      ActivityShareData.fromActivity(item, eventName: widget.eventName),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(Icons.share, size: 18, color: widget.themeColor),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

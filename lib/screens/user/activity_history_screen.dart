@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/helpers/activity_share_helper.dart';
+import 'package:pltuapp/models/activity_share_data.dart';
 
 class ActivityHistoryScreen extends StatefulWidget {
   const ActivityHistoryScreen({Key? key}) : super(key: key);
@@ -536,27 +538,26 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   Widget _buildActivityCard(dynamic item) {
     Color statusColor = _getStatusColor(item['status']);
 
-    return GestureDetector(
-      onTap: () => _showDetailModal(item),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => _showDetailModal(item),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: 60,
@@ -571,9 +572,13 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+          ),
+          const SizedBox(width: 16),
 
-            Expanded(
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showDetailModal(item),
+              behavior: HitTestBehavior.opaque,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -600,24 +605,47 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                 ],
               ),
             ),
+          ),
 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                (item['status'] ?? 'UNKNOWN').toString().toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: statusColor,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  (item['status'] ?? 'UNKNOWN').toString().toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 8),
+              Material(
+                color: primaryPurple.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () {
+                    ActivityShareHelper.showShareSheet(
+                      context,
+                      ActivityShareData.fromActivity(item),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.share, size: 18, color: Color(0xFF5D44F8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

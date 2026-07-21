@@ -25,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _fullName = 'User PLN';
   String _email = '-';
   String _phoneNumber = '-';
+  String _departmentName = '-';
   String? _profilePhotoUrl;
 
   // Statistik
@@ -123,6 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _fullName = data['fullName'] ?? 'User PLN';
         _email = data['email'] ?? '-';
         _phoneNumber = data['phoneNumber'] ?? '-';
+        _departmentName = data['departmentName'] ?? '-';
         _profilePhotoUrl = data['profilePhotoUrl'];
         _points = data['pointsBalance'] ?? 0;
         _exp = data['xpBalance'] ?? 0;
@@ -639,6 +641,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Text(_email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                   const SizedBox(height: 2),
                                   Text(_phoneNumber, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.business_outlined, color: Colors.white70, size: 14),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          _departmentName,
+                                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 8),
                                   // --- TAMBAHAN: TOMBOL UBAH PASSWORD ---
                                   GestureDetector(
