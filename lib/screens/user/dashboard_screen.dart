@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -8,7 +9,9 @@ import 'package:pltuapp/screens/user/leaderboard_screen.dart';
 import 'package:pltuapp/screens/user/reward_screen.dart';
 import 'package:pltuapp/screens/user/event_detail_screen.dart';
 import 'package:pltuapp/screens/user/profile_screen.dart';
+import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/widgets/badge_network_image.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -17,9 +20,11 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _isLoading = true;
+  bool _isFetching = false;
+  Timer? _refreshTimer;
 
   // --- VARIABEL DATA DINAMIS ---
   int _points = 0;
@@ -55,13 +60,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchDashboardData();
+    WidgetsBinding.instance.addObserver(this);
+    _fetchDashboardData(showLoading: true);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (_selectedIndex == 0) {
+        _fetchDashboardData(showLoading: false);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _eventPageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _selectedIndex == 0) {
+      _fetchDashboardData(showLoading: false);
+    }
+  }
+
+  void _openBadgeTiers() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BadgeTiersScreen()),
+    );
   }
 
   Color _hexToColor(String hexString) {
@@ -85,8 +112,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _fetchDashboardData() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchDashboardData({bool showLoading = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
+    if (showLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -192,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint("Error fetching dashboard: $e");
     } finally {
+      _isFetching = false;
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -202,6 +235,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 0) {
+      _fetchDashboardData(showLoading: false);
+    }
   }
 
   void _showLogoutDialog() {
@@ -391,12 +427,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool hasStreakBadge = streakImageUrl != null && streakImageUrl.isNotEmpty;
 
     return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _fetchDashboardData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-          child: Column(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- HEADER ---
@@ -513,15 +547,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
-                                  child: SizedBox(
-                                    width: 55, height: 55,
-                                    child: hasStreakBadge
-                                        ? Image.network(
-                                      streakImageUrl!,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (c, e, s) => Image.asset('assets/images/dotted_hexagon.png', fit: BoxFit.contain),
-                                    )
-                                        : Image.asset('assets/images/dotted_hexagon.png', fit: BoxFit.contain),
+                                  child: BadgeNetworkImage(
+                                    imageUrl: hasStreakBadge ? streakImageUrl : null,
+                                    kind: BadgeImageKind.streak,
+                                    width: 55,
+                                    height: 55,
                                   ),
                                 ),
                               ),
@@ -635,7 +665,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
 
               // --- CARD 4: MILESTONE LENCANA DENGAN TIER ---
-              Container(
+              InkWell(
+                onTap: _openBadgeTiers,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                     color: Colors.white,
@@ -649,29 +682,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        SizedBox(
-                          width: 65, height: 65,
-                          child: (badgeImageUrl != null && badgeImageUrl.isNotEmpty)
-                              ? Image.network(
-                            badgeImageUrl,
-                            fit: BoxFit.contain,
-                            errorBuilder: (c, e, s) => Container(
-                              decoration: BoxDecoration(
-                                  color: badgeColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: badgeColor.withOpacity(0.5), width: 1.5)
-                              ),
-                              child: Icon(Icons.shield, color: badgeColor, size: 36),
-                            ),
-                          )
-                              : Container(
-                            decoration: BoxDecoration(
-                                color: badgeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: badgeColor.withOpacity(0.5), width: 1.5)
-                            ),
-                            child: Icon(Icons.shield, color: badgeColor, size: 36),
-                          ),
+                        BadgeNetworkImage(
+                          imageUrl: badgeImageUrl,
+                          kind: BadgeImageKind.tier,
+                          width: 65,
+                          height: 65,
+                          fallbackIcon: Icons.shield,
+                          fallbackIconColor: badgeColor,
                         ),
                         Positioned(
                           bottom: -4,
@@ -700,9 +717,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                  badgeName,
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: badgeColor)
+                              Expanded(
+                                child: Text(
+                                    badgeName,
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: badgeColor)
+                                ),
                               ),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -724,17 +743,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(xpText, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: Text(xpText, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500))),
+                              Text('Lihat semua tier', style: TextStyle(fontSize: 11, color: badgeColor, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
+              ),
+              const SizedBox(height: 16),
+
+              // --- CARD 5: LENCANA STREAK ---
+              _buildDashboardStreakCard(),
               const SizedBox(height: 80),
             ],
           ),
         ),
+    );
+  }
+
+
+  Widget _buildDashboardStreakCard() {
+    String? streakImageUrl;
+    if (_streakBadge != null) {
+      streakImageUrl = _streakBadge!['image'] ?? _streakBadge!['image_url'];
+    }
+    final hasStreakBadge = streakImageUrl != null && streakImageUrl.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.withOpacity(0.25)),
+        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: BadgeNetworkImage(
+                imageUrl: streakImageUrl,
+                kind: BadgeImageKind.streak,
+                width: 48,
+                height: 48,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasStreakBadge ? 'Lencana Streak' : 'Kejar Lencana Streak',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: hasStreakBadge ? Colors.green : Colors.orange),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasStreakBadge ? (_streakBadge!['name'] ?? 'Lencana Streak') : 'Belum ada lencana',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$_streakDays hari streak · ${hasStreakBadge ? 'Pertahankan konsistensimu!' : 'Catat aktivitas setiap hari'}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department, color: Colors.orange, size: 16),
+                const SizedBox(width: 4),
+                Text('$_streakDays', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

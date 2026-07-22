@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
-import 'package:pltuapp/helpers/activity_share_helper.dart';
-import 'package:pltuapp/models/activity_share_data.dart';
+import 'package:pltuapp/widgets/modern_activity_ui.dart';
 
 class ActivityHistoryScreen extends StatefulWidget {
   const ActivityHistoryScreen({Key? key}) : super(key: key);
@@ -26,7 +25,6 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   String _selectedStatus = 'Semua';
 
   final Color primaryPurple = const Color(0xFF5D44F8);
-  final Color bgColor = const Color(0xFFF8F9FA);
 
   @override
   void initState() {
@@ -112,17 +110,6 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'APPROVED':
-        return Colors.green;
-      case 'REJECTED':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
-  }
-
   // ===========================================================================
   // FUNGSI UNTUK FULLSCREEN ZOOM IMAGE
   // ===========================================================================
@@ -172,216 +159,17 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   // FUNGSI MEMUNCULKAN MODAL DETAIL
   // ===========================================================================
   void _showDetailModal(dynamic item) {
-    Color statusColor = _getStatusColor(item['status'] ?? '');
-    String statusText = (item['status'] ?? 'UNKNOWN').toString().toUpperCase();
-
-    // --- MENGAMBIL REVIEW NOTE DARI API ---
-    String? reviewNote = item['review_note'];
-
-    IconData statusIcon = Icons.info_outline;
-    if (statusText == 'APPROVED') statusIcon = Icons.check_circle;
-    if (statusText == 'REJECTED') statusIcon = Icons.cancel;
-
-    showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            backgroundColor: const Color(0xFFF8F9FA),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.close, color: Colors.grey),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // --- BANNER STATUS DENGAN REVIEW NOTE ---
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(statusIcon, color: statusColor, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    'STATUS: $statusText',
-                                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  (reviewNote != null && reviewNote.isNotEmpty)
-                                      ? 'Catatan: $reviewNote'
-                                      : (statusText == 'APPROVED'
-                                      ? 'Aktivitas ini telah divalidasi dan disetujui oleh sistem.'
-                                      : statusText == 'REJECTED'
-                                      ? 'Aktivitas ini ditolak. Pastikan bukti valid.'
-                                      : 'Aktivitas ini sedang dalam proses review.'),
-                                  style: TextStyle(color: statusColor, fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildModalInfoCard('ACTIVITY TYPE', item['type'] ?? '-', icon: Icons.directions_run),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: _buildModalInfoCard('DISTANCE', '${item['distance_km'] ?? 0} KM', isLargeValue: true)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildModalInfoCard('DURATION', '${item['duration_minutes'] ?? 0} Min', isLargeValue: true)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildModalInfoCard('DATE', item['date'] ?? '-'),
-                    const SizedBox(height: 24),
-
-                    const Text('Verification Evidence', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D))),
-                    const SizedBox(height: 12),
-
-                    if (item['source_link'] != null && item['source_link'].toString().isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('STRAVA LINK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: primaryPurple.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.link, size: 16, color: primaryPurple),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      item['source_link'],
-                                      style: TextStyle(color: primaryPurple, fontSize: 12),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Icon(Icons.open_in_new, size: 16, color: primaryPurple),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('BUKTI FOTO (Ketuk untuk memperbesar)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () {
-                              if (item['proof_photo'] != null && item['proof_photo'].toString().isNotEmpty) {
-                                _showZoomableImage(item['proof_photo']);
-                              }
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                item['proof_photo'] ?? '',
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    height: 100,
-                                    color: Colors.grey.shade100,
-                                    child: const Center(child: Text('Gambar tidak tersedia', style: TextStyle(color: Colors.grey))),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
+    final photo = item['proof_photo']?.toString() ?? '';
+    showModernActivityDetailSheet(
+      context: context,
+      item: item,
+      accentColor: primaryPurple,
+      onZoomPhoto: () {
+        if (photo.isNotEmpty) {
+          Navigator.pop(context);
+          _showZoomableImage(photo);
         }
-    );
-  }
-
-  Widget _buildModalInfoCard(String title, String value, {IconData? icon, bool isLargeValue = false}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 18, color: primaryPurple),
-                const SizedBox(width: 6),
-              ],
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: isLargeValue ? 18 : 14,
-                    fontWeight: FontWeight.bold,
-                    color: isLargeValue ? primaryPurple : const Color(0xFF2D2D2D),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      },
     );
   }
 
@@ -400,132 +188,69 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- HEADER ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Aktifitas',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)),
-                  ),
-                  Stack(
-                    // children: [
-                    //   Container(
-                    //     padding: const EdgeInsets.all(8),
-                    //     decoration: BoxDecoration(
-                    //       shape: BoxShape.circle,
-                    //       border: Border.all(color: Colors.grey.shade300),
-                    //     ),
-                    //     child: const Icon(Icons.notifications_none, color: Colors.black87),
-                    //   ),
-                    //   Positioned(
-                    //     right: 6,
-                    //     top: 6,
-                    //     child: Container(
-                    //       padding: const EdgeInsets.all(4),
-                    //       decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    //     ),
-                    //   )
-                    // ],
-                  ),
-                ],
+              const Text(
+                'Riwayat Aktivitas',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
               ),
-              const SizedBox(height: 24),
-
-              // --- KOTAK TOTAL AKTIVITAS ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: primaryPurple.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: primaryPurple.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Aktivitas (Tahunan)',
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _selectedStatus == 'Semua' ? 'Keseluruhan' : _selectedStatus,
-                          style: TextStyle(
-                              color: primaryPurple,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _isLoading ? '-' : '$_totalItems',
-                      style: TextStyle(
-                        color: primaryPurple,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 32,
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 6),
+              Text(
+                'Pantau progres, status verifikasi, dan bagikan pencapaianmu.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
               ),
               const SizedBox(height: 20),
-
-              // --- FILTER CHIPS ---
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip('Semua'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Pending'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Approved'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Rejected'),
-                  ],
-                ),
+              ModernActivityStatsHeader(
+                accentColor: primaryPurple,
+                title: 'Total Aktivitas (Tahunan)',
+                subtitle: _selectedStatus == 'Semua' ? 'Semua Status' : _selectedStatus,
+                totalItems: _totalItems,
+                isLoading: _isLoading,
+              ),
+              const SizedBox(height: 20),
+              ModernActivityFilterBar(
+                accentColor: primaryPurple,
+                selectedStatus: _selectedStatus,
+                onChanged: _changeFilter,
               ),
               const SizedBox(height: 24),
-
-              // --- LIST AKTIVITAS ---
               _isLoading
                   ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: CircularProgressIndicator(),
-                ),
-              )
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 50.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
                   : _activities.isEmpty
-                  ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: Text('Tidak ada aktivitas ditemukan.', style: TextStyle(color: Colors.grey)),
-                ),
-              )
-                  : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _activities.length,
-                itemBuilder: (context, index) {
-                  final item = _activities[index];
-                  return _buildActivityCard(item);
-                },
-              ),
-
+                      ? modernActivityEmptyState(
+                          message: 'Belum ada aktivitas untuk filter ini.\nCatat aktivitas pertamamu dari Beranda.',
+                          accentColor: primaryPurple,
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _activities.length,
+                          itemBuilder: (context, index) {
+                            final item = _activities[index];
+                            final photo = item['proof_photo']?.toString() ?? '';
+                            return ModernActivityCard(
+                              item: item,
+                              accentColor: primaryPurple,
+                              onTapDetail: () => _showDetailModal(item),
+                              onTapImage: () {
+                                if (photo.isNotEmpty) {
+                                  _showZoomableImage(photo);
+                                } else {
+                                  _showDetailModal(item);
+                                }
+                              },
+                            );
+                          },
+                        ),
               const SizedBox(height: 30),
-
-              // --- PAGINATION ---
               if (!_isLoading && _totalPages > 1)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: _buildPaginationWidgets(),
                 ),
-
               const SizedBox(height: 80),
             ],
           ),
@@ -534,147 +259,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     );
   }
 
-  // --- WIDGET CARD AKTIVITAS ---
-  Widget _buildActivityCard(dynamic item) {
-    Color statusColor = _getStatusColor(item['status']);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () => _showDetailModal(item),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 60,
-                height: 60,
-                color: Colors.grey.shade100,
-                child: Image.network(
-                  item['proof_photo'] ?? '',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.directions_run, color: primaryPurple, size: 30);
-                  },
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showDetailModal(item),
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['type'] ?? 'Aktivitas',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${item['distance_km']} km • Duration ${item['duration_minutes']}m',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade400),
-                      const SizedBox(width: 4),
-                      Text(
-                        item['date'] ?? '-',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  (item['status'] ?? 'UNKNOWN').toString().toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Material(
-                color: primaryPurple.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  onTap: () {
-                    ActivityShareHelper.showShareSheet(
-                      context,
-                      ActivityShareData.fromActivity(item),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.share, size: 18, color: Color(0xFF5D44F8)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- WIDGET FILTER CHIP INTERAKTIF ---
-  Widget _buildFilterChip(String label) {
-    bool isSelected = _selectedStatus == label;
-    return GestureDetector(
-      onTap: () => _changeFilter(label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryPurple : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? primaryPurple : Colors.grey.shade300),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade600,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --- WIDGET PAGINATION ---
+  // --- legacy helpers removed; pagination below ---
   List<Widget> _buildPaginationWidgets() {
     List<Widget> widgets = [];
 

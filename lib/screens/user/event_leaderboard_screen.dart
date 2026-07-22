@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/screens/user/participant_profile_screen.dart';
 
 class EventLeaderboardScreen extends StatefulWidget {
   final String eventId;
@@ -116,10 +117,56 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
+  void _openParticipantProfile(String? userId) {
+    if (userId == null || userId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ParticipantProfileScreen(userId: userId),
+      ),
+    );
+  }
+
   // --- HELPER UNTUK NAMA BIDANG/DEPARTEMEN ---
   String _getDepartmentName(dynamic item) {
     if (item == null) return '';
     return item['department_name'] ?? item['departmentName'] ?? '';
+  }
+
+  // --- HELPER UNTUK URL FOTO PROFIL (JAGA-JAGA VARIASI KEY DARI API) ---
+  String _getPhotoUrl(dynamic item) {
+    if (item == null) return '';
+    return item['profile_photo_url'] ??
+        item['profilePhotoUrl'] ??
+        item['avatar_url'] ??
+        item['avatarUrl'] ??
+        '';
+  }
+
+  String _resolveAvatarUrl(dynamic item, String name) {
+    String photoUrl = _getPhotoUrl(item);
+    return photoUrl.isNotEmpty
+        ? photoUrl
+        : 'https://ui-avatars.com/api/?name=$name&background=random&color=fff';
+  }
+
+  // --- WIDGET AVATAR DENGAN FALLBACK IKON JIKA GAMBAR GAGAL DIMUAT ---
+  Widget _buildAvatarImage(String avatarUrl, double radius, {Color? fallbackColor}) {
+    return ClipOval(
+      child: Image.network(
+        avatarUrl,
+        width: radius * 2,
+        height: radius * 2,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: radius * 2,
+          height: radius * 2,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: Icon(Icons.person, color: fallbackColor ?? Colors.grey.shade400, size: radius),
+        ),
+      ),
+    );
   }
 
   @override
@@ -133,10 +180,7 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
     String myName = _currentUserStat != null ? _currentUserStat!['full_name'] : 'Kamu';
     String myXp = _currentUserStat != null ? _currentUserStat!['xp'].toString() : '0';
     String myDepartment = _getDepartmentName(_currentUserStat);
-    String? myProfilePhoto = _currentUserStat != null ? _currentUserStat!['profile_photo_url'] : null;
-    String myAvatarUrl = (myProfilePhoto != null && myProfilePhoto.isNotEmpty)
-        ? myProfilePhoto
-        : 'https://ui-avatars.com/api/?name=$myName&background=ffffff&color=${widget.themeColor.value.toRadixString(16).substring(2, 8)}';
+    String myAvatarUrl = _resolveAvatarUrl(_currentUserStat, myName);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -253,12 +297,11 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
                     ),
                     const SizedBox(width: 10),
                     Container(
-                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.white,
-                        backgroundImage: NetworkImage(myAvatarUrl),
-                      ),
+                      width: 36,
+                      height: 36,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                      child: _buildAvatarImage(myAvatarUrl, 16),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -345,10 +388,7 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
     String name = item['full_name'] ?? 'Unknown';
     String xp = (item['xp'] ?? 0).toString();
     String department = _getDepartmentName(item);
-    String? profilePhoto = item['profile_photo_url'];
-    String avatarUrl = (profilePhoto != null && profilePhoto.isNotEmpty)
-        ? profilePhoto
-        : 'https://ui-avatars.com/api/?name=$name&background=random&color=fff';
+    String avatarUrl = _resolveAvatarUrl(item, name);
 
     final medalColor = rank == 1
         ? const Color(0xFFFFC107)
@@ -441,12 +481,12 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
     String xp = (item['xp'] ?? 0).toString();
     String rank = (item['rank'] ?? 0).toString();
     String department = _getDepartmentName(item);
-    String? profilePhoto = item['profile_photo_url'];
-    String avatarUrl = (profilePhoto != null && profilePhoto.isNotEmpty)
-        ? profilePhoto
-        : 'https://ui-avatars.com/api/?name=$name&background=random&color=fff';
+    String avatarUrl = _resolveAvatarUrl(item, name);
 
-    return Container(
+    return GestureDetector(
+      onTap: () => _openParticipantProfile(item['user_id']?.toString()),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -464,7 +504,7 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
             child: Text(rank, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 12),
-          CircleAvatar(radius: 20, backgroundColor: Colors.grey.shade200, backgroundImage: NetworkImage(avatarUrl)),
+          SizedBox(width: 40, height: 40, child: _buildAvatarImage(avatarUrl, 20)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -489,6 +529,7 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

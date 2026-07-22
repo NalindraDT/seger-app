@@ -23,9 +23,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
   bool _isLoadingDepartments = true;
+  bool _isLoadingCompanies = true;
 
   List<Map<String, dynamic>> _departments = [];
+  List<Map<String, dynamic>> _companies = [];
   String? _selectedDepartmentId;
+  String? _selectedCompanyId;
 
   String? _notificationMessage;
   bool _isErrorNotification = true;
@@ -40,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _fetchDepartments();
+    _fetchCompanies();
   }
 
   @override
@@ -98,6 +102,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _fetchCompanies() async {
+    setState(() => _isLoadingCompanies = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiHelper.baseUrl}/companies?page=1&limit=100'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        final items = (responseData['data']['items'] as List)
+            .where((item) => item['is_active'] == true)
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+
+        setState(() {
+          _companies = items;
+          if (items.length == 1) {
+            _selectedCompanyId = items.first['id']?.toString();
+          }
+        });
+      } else {
+        _showTopNotification('Gagal memuat data perusahaan.', isError: true);
+      }
+    } catch (e) {
+      _showTopNotification('Terjadi kesalahan jaringan.', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoadingCompanies = false);
+    }
+  }
+
   String _extractErrorMessage(Map<String, dynamic> responseData) {
     if (responseData['error'] != null && responseData['error']['message'] != null) {
       return responseData['error']['message'].toString();
@@ -118,6 +155,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (_selectedCompanyId == null || _selectedCompanyId!.isEmpty) {
+      _showTopNotification('Perusahaan wajib dipilih!', isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -130,6 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'full_name': _fullNameController.text.trim(),
           'phone_number': _phoneController.text.trim(),
           'department_id': _selectedDepartmentId,
+          'company_id': _selectedCompanyId,
         }),
       );
 
@@ -334,6 +377,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                         const SizedBox(height: 16),
 
+                        const Text('Perusahaan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        _isLoadingCompanies
+                            ? const Center(child: Padding(
+                                padding: EdgeInsets.all(12.0),
+                                child: CircularProgressIndicator(),
+                              ))
+                            : _companies.isEmpty
+                                ? Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: Text('Data perusahaan tidak tersedia', style: TextStyle(color: Colors.grey.shade600))),
+                                        TextButton(onPressed: _fetchCompanies, child: const Text('Muat ulang')),
+                                      ],
+                                    ),
+                                  )
+                                : DropdownButtonFormField<String>(
+                                    value: _selectedCompanyId,
+                                    decoration: _inputDecoration('Pilih perusahaan', prefixIcon: Icons.apartment_outlined),
+                                    items: _companies.map((company) {
+                                      return DropdownMenuItem<String>(
+                                        value: company['id']?.toString(),
+                                        child: Text(company['name']?.toString() ?? '-'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) => setState(() => _selectedCompanyId = value),
+                                    validator: (v) => v == null || v.isEmpty ? 'Perusahaan wajib dipilih' : null,
+                                  ),
+                        const SizedBox(height: 16),
+
                         const Text('Password', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         TextFormField(
@@ -376,7 +455,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: (_isLoading || _isLoadingDepartments) ? null : _handleRegister,
+                            onPressed: (_isLoading || _isLoadingDepartments || _isLoadingCompanies) ? null : _handleRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryPink,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

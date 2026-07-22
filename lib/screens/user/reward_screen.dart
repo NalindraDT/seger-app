@@ -210,6 +210,171 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
+  Future<void> _receiveRedemption(String redemptionId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.post(
+        Uri.parse('${ApiHelper.baseUrl}/rewards/redemptions/$redemptionId/receive'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (!_checkAuth(response.statusCode)) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _fetchHistory();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hadiah berhasil diterima!'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        _showError('Gagal menerima hadiah.');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        _showError('Terjadi kesalahan jaringan.');
+      }
+    }
+  }
+
+  String _formatDateTime(String? dateRaw) {
+    if (dateRaw == null || dateRaw.isEmpty) return '-';
+    try {
+      DateTime parsed = DateTime.parse(dateRaw);
+      return '${parsed.day}/${parsed.month}/${parsed.year} ${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateRaw.split('T')[0];
+    }
+  }
+
+  void _showReceiveConfirmationModal(dynamic item) {
+    final redemptionId = item['id']?.toString();
+    final rewardName = item['reward_name'] ?? 'Hadiah';
+    if (redemptionId == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Konfirmasi Penerimaan', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(
+          'Apakah Anda yakin sudah menerima hadiah "$rewardName"?',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _receiveRedemption(redemptionId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryPurple,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Terima', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHistoryDetailModal(dynamic item) {
+    final status = (item['status'] ?? 'UNKNOWN').toString().toUpperCase();
+    final adminNote = item['admin_note']?.toString();
+    final processedAt = item['processed_at']?.toString();
+    final requestedAt = item['requested_at']?.toString();
+
+    Color statusColor = Colors.orange;
+    if (status == 'PROCESSED' || status == 'RECEIVED') {
+      statusColor = Colors.green;
+    } else if (status == 'REJECTED') {
+      statusColor = Colors.red;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item['reward_name'] ?? 'Detail Penukaran',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+              const SizedBox(height: 16),
+              _buildDetailRow('Diminta', _formatDateTime(requestedAt)),
+              const SizedBox(height: 8),
+              _buildDetailRow('Diproses', _formatDateTime(processedAt)),
+              if (adminNote != null && adminNote.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Catatan Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                Text(adminNote, style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+
   // ===========================================================================
   // MODALS (KONFIRMASI & SUKSES)
   // ===========================================================================
@@ -674,6 +839,7 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
     int spent = item['points_spent'] ?? 0;
     String status = (item['status'] ?? 'UNKNOWN').toString().toUpperCase();
     String dateRaw = item['requested_at'] ?? '';
+    String? adminNote = item['admin_note'];
 
     // --- MENYIAPKAN VARIABEL GAMBAR DARI BACKEND ---
     // Mengantisipasi backend mengirim nama field 'image' atau 'reward_image'
@@ -689,8 +855,13 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
       }
     }
 
-    // Warna status: Hijau untuk diproses, oranye untuk pending
-    Color statusColor = status == 'PROCESSED' ? Colors.green : Colors.orange;
+    // Warna status
+    Color statusColor = Colors.orange;
+    if (status == 'PROCESSED' || status == 'RECEIVED') {
+      statusColor = Colors.green;
+    } else if (status == 'REJECTED') {
+      statusColor = Colors.red;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -701,66 +872,92 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // --- LOGIKA GAMBAR ATAU ICON CADANGAN ---
-          imageUrl.isNotEmpty
-              ? ClipRRect(
-            borderRadius: BorderRadius.circular(12), // Sesuaikan bentuk agak kotak
-            child: Container(
-              width: 50,
-              height: 50,
-              color: Colors.grey.shade100,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: primaryPurple.withOpacity(0.1), shape: BoxShape.circle),
-                    child: Icon(Icons.card_giftcard, color: primaryPurple, size: 24),
-                  );
-                },
-              ),
-            ),
-          )
-              : Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: primaryPurple.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(Icons.card_giftcard, color: primaryPurple, size: 24),
-          ),
-          const SizedBox(width: 16),
-          // ----------------------------------------
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          GestureDetector(
+            onTap: () => _showHistoryDetailModal(item),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 6),
-                Row(
+                imageUrl.isNotEmpty
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    color: Colors.grey.shade100,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: primaryPurple.withOpacity(0.1), shape: BoxShape.circle),
+                          child: Icon(Icons.card_giftcard, color: primaryPurple, size: 24),
+                        );
+                      },
+                    ),
+                  ),
+                )
+                    : Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: primaryPurple.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(Icons.card_giftcard, color: primaryPurple, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time, size: 12, color: Colors.grey.shade400),
+                          const SizedBox(width: 4),
+                          Text(formattedDate, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                        ],
+                      ),
+                      if (adminNote != null && adminNote.isNotEmpty && (status == 'REJECTED' || status == 'PROCESSED')) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Catatan: $adminNote',
+                          style: TextStyle(fontSize: 11, color: status == 'REJECTED' ? Colors.red.shade700 : Colors.grey.shade600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Icon(Icons.access_time, size: 12, color: Colors.grey.shade400),
-                    const SizedBox(width: 4),
-                    Text(formattedDate, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    Text('- $spent Poin', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFE9005C))),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('- $spent Poin', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFE9005C))),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+          if (status == 'PROCESSED') ...[
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => _showReceiveConfirmationModal(item),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryPurple,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-            ],
-          ),
+              child: const Text('Terima Hadiah', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ],
       ),
     );

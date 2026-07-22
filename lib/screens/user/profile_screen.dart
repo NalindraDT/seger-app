@@ -10,6 +10,8 @@ import 'package:http_parser/http_parser.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
+import 'package:pltuapp/widgets/badge_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -18,14 +20,16 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
+  bool _isFetching = false;
 
   // Data User
   String _fullName = 'User PLN';
   String _email = '-';
   String _phoneNumber = '-';
   String _departmentName = '-';
+  String _companyName = '-';
   String? _profilePhotoUrl;
 
   // Statistik
@@ -42,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _notificationMessage;
   bool _isErrorNotification = true;
   Timer? _notificationTimer;
+  Timer? _refreshTimer;
 
   final Color primaryPurple = const Color(0xFF5D44F8);
   final Color bgColor = const Color(0xFFF8F9FA);
@@ -49,13 +54,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfileData();
+    WidgetsBinding.instance.addObserver(this);
+    _fetchProfileData(showLoading: true);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _fetchProfileData(showLoading: false);
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _notificationTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchProfileData(showLoading: false);
+    }
   }
 
   Color _hexToColor(String hexString) {
@@ -103,8 +121,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // API CALLS (FETCH, UPDATE PROFILE, UPDATE PHOTO)
   // ===========================================================================
 
-  Future<void> _fetchProfileData() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchProfileData({bool showLoading = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
+    if (showLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
@@ -125,6 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _email = data['email'] ?? '-';
         _phoneNumber = data['phoneNumber'] ?? '-';
         _departmentName = data['departmentName'] ?? '-';
+        _companyName = data['companyName'] ?? data['company_name'] ?? '-';
         _profilePhotoUrl = data['profilePhotoUrl'];
         _points = data['pointsBalance'] ?? 0;
         _exp = data['xpBalance'] ?? 0;
@@ -173,6 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       debugPrint("Error fetching profile: $e");
     } finally {
+      _isFetching = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -583,13 +609,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           _isLoading
               ? Center(child: CircularProgressIndicator(color: primaryPurple))
-              : RefreshIndicator(
-            onRefresh: _fetchProfileData,
-            color: primaryPurple,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Column(
+              : SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
                 children: [
                   // --- CARD 1: USER INFO ---
                   Container(
@@ -649,6 +672,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       Expanded(
                                         child: Text(
                                           _departmentName,
+                                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.apartment_outlined, color: Colors.white70, size: 14),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          _companyName,
                                           style: const TextStyle(color: Colors.white70, fontSize: 13),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -720,7 +758,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
 
                   // --- CARD 3: LEVEL KAMU ---
-                  _buildLevelCard(),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const BadgeTiersScreen()),
+                      );
+                    },
+                    child: _buildLevelCard(),
+                  ),
                   const SizedBox(height: 20),
 
                   // --- CARD 4: STREAK BADGE ---
@@ -774,7 +820,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-          ),
 
           // --- WIDGET NOTIFIKASI MENGAMBANG ---
           if (_notificationMessage != null)
@@ -902,7 +947,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('LEVEL KAMU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryPurple)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('LEVEL KAMU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryPurple)),
+                    Text('Lihat tier', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryPurple)),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(badgeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D))),
                 const SizedBox(height: 12),
@@ -930,13 +981,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           SizedBox(
             width: 70, height: 70,
-            child: (badgeImageUrl != null && badgeImageUrl.isNotEmpty)
-                ? Image.network(
-              badgeImageUrl,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) => Icon(Icons.shield, color: badgeColor, size: 50),
-            )
-                : Icon(Icons.shield, color: badgeColor, size: 50),
+            child: BadgeNetworkImage(
+              imageUrl: badgeImageUrl,
+              kind: BadgeImageKind.tier,
+              width: 70,
+              height: 70,
+              fallbackIcon: Icons.shield,
+              fallbackIconColor: badgeColor,
+            ),
           ),
         ],
       ),
@@ -964,15 +1016,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           SizedBox(
             width: 75, height: 75,
-            child: hasStreakBadge
-                ? Image.network(
-              streakImageUrl!,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) => Image.asset('assets/images/dotted_hexagon.png', fit: BoxFit.contain),
-            )
-                : Image.asset(
-              'assets/images/dotted_hexagon.png',
-              fit: BoxFit.contain,
+            child: BadgeNetworkImage(
+              imageUrl: hasStreakBadge ? streakImageUrl : null,
+              kind: BadgeImageKind.streak,
+              width: 75,
+              height: 75,
             ),
           ),
           const SizedBox(width: 20),

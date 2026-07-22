@@ -124,10 +124,17 @@ class ActivityShareCard extends StatelessWidget {
                 children: [
                   Expanded(child: _buildStatBox('JARAK', '${data.distanceKm} km')),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildStatBox('DURASI', '${data.durationMinutes} m')),
+                  Expanded(child: _buildStatBox('DURASI', data.formattedDuration)),
                 ],
               ),
             ),
+            if (data.paceMinPerKm != null && data.paceMinPerKm!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildStatBox('PACE', '${data.paceMinPerKm} min/km'),
+              ),
+            ],
             const SizedBox(height: 16),
             if (hasPhoto)
               Padding(

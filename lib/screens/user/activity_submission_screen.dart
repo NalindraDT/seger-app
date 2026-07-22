@@ -23,6 +23,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
   // Controller input text
   final TextEditingController _distanceController = TextEditingController();
   final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _durationSecondsController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
 
   // Variabel untuk Dropdown Dinamis (Aktivitas)
@@ -36,6 +37,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
 
   File? _imageFile;
   bool _isLoadingSubmit = false;
+  DateTime _selectedActivityDate = DateTime.now();
 
   // --- VARIABEL NOTIFIKASI MENGAMBANG ---
   String? _notificationMessage;
@@ -55,6 +57,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
   void dispose() {
     _distanceController.dispose();
     _durationController.dispose();
+    _durationSecondsController.dispose();
     _linkController.dispose();
     _notificationTimer?.cancel(); // Bersihkan timer
     super.dispose();
@@ -139,6 +142,22 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
     }
   }
 
+  Future<void> _pickActivityDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedActivityDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() => _selectedActivityDate = picked);
+    }
+  }
+
+  String _formatActivityDate(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
   // --- Fungsi kirim data ke API (Multipart/Form-Data) ---
   Future<void> _submitData() async {
     if (!_formKey.currentState!.validate()) return;
@@ -169,12 +188,15 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
 
       request.headers['Authorization'] = 'Bearer $token';
 
-      String todayDate = DateTime.now().toString().split(' ')[0];
+      String activityDate = _formatActivityDate(_selectedActivityDate);
 
       request.fields['activity_type_id'] = _selectedActivityTypeId!;
-      request.fields['activity_date'] = todayDate;
+      request.fields['activity_date'] = activityDate;
       request.fields['distance_km'] = _distanceController.text;
       request.fields['duration_minutes'] = _durationController.text;
+      request.fields['duration_seconds'] = _durationSecondsController.text.isEmpty
+          ? '0'
+          : _durationSecondsController.text;
       request.fields['recorded_via'] = _selectedRecordedVia!;
       request.fields['source_link'] = _linkController.text;
 
@@ -311,6 +333,21 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  const Text('Tanggal Aktivitas', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: _pickActivityDate,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: _inputDecoration('Pilih tanggal', icon: Icons.calendar_today_outlined),
+                      child: Text(
+                        '${_selectedActivityDate.day}/${_selectedActivityDate.month}/${_selectedActivityDate.year}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   Row(
                     children: [
                       Expanded(
@@ -348,12 +385,40 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  const Text('Link Strava (Opsional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Detik', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _durationSecondsController,
+                    keyboardType: TextInputType.number,
+                    decoration: _inputDecoration('0', suffix: 'Detik (0-59)', icon: Icons.timer_outlined),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return null;
+                      final parsed = int.tryParse(value);
+                      if (parsed == null) return 'Harus angka';
+                      if (parsed < 0 || parsed > 59) return 'Detik harus 0-59';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  Text(
+                    _selectedRecordedVia?.toLowerCase() == 'strava'
+                        ? 'Link Strava (Wajib)'
+                        : 'Link Strava (Opsional)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _linkController,
                     keyboardType: TextInputType.url,
                     decoration: _inputDecoration('https://strava.app.link/xxxxxx', icon: Icons.link),
+                    validator: (value) {
+                      if (_selectedRecordedVia?.toLowerCase() == 'strava' &&
+                          (value == null || value.trim().isEmpty)) {
+                        return 'Link Strava wajib diisi';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
 

@@ -147,6 +147,271 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return item['department_name'] ?? item['departmentName'] ?? '';
   }
 
+  // --- HELPER UNTUK URL FOTO PROFIL (JAGA-JAGA VARIASI KEY DARI API) ---
+  String _getPhotoUrl(dynamic item) {
+    if (item == null) return '';
+    return item['profile_photo_url'] ??
+        item['profilePhotoUrl'] ??
+        item['avatar_url'] ??
+        item['avatarUrl'] ??
+        '';
+  }
+
+  String _resolveAvatarUrl(dynamic item, String name) {
+    if (item == null) {
+      return 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random&color=fff';
+    }
+    String photoUrl = _getPhotoUrl(item);
+    return photoUrl.isNotEmpty
+        ? photoUrl
+        : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random&color=fff';
+  }
+
+  double get _eventProgress {
+    final startAt = _parseEventDate(_eventDetail?['start_at']?.toString());
+    final endAt = _parseEventDate(_eventDetail?['end_at']?.toString());
+    if (startAt == null || endAt == null || !endAt.isAfter(startAt)) return 0;
+    final now = DateTime.now();
+    if (now.isBefore(startAt)) return 0;
+    if (now.isAfter(endAt)) return 1;
+    return (now.difference(startAt).inMilliseconds / endAt.difference(startAt).inMilliseconds).clamp(0.0, 1.0);
+  }
+
+  String get _eventPhaseLabel {
+    if (_isComingSoon) return 'Segera Dimulai';
+    if (_canSubmitActivity) return 'Sedang Berlangsung';
+    return 'Event Berakhir';
+  }
+
+  DateTime? _parseEventDate(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return null;
+    try {
+      return DateTime.parse(isoDate);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _isComingSoon {
+    final startAt = _parseEventDate(_eventDetail?['start_at']?.toString());
+    if (startAt == null) return false;
+    return DateTime.now().isBefore(startAt);
+  }
+
+  bool get _canSubmitActivity {
+    final startAt = _parseEventDate(_eventDetail?['start_at']?.toString());
+    final endAt = _parseEventDate(_eventDetail?['end_at']?.toString());
+    if (startAt == null || endAt == null) return false;
+    final now = DateTime.now();
+    return !now.isBefore(startAt) && !now.isAfter(endAt);
+  }
+
+  Widget _buildInfoSection(String title, String content, IconData icon) {
+    if (content.trim().isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: _CollapsibleInfoCard(
+        title: title,
+        content: content,
+        icon: icon,
+        color: _themeColor,
+      ),
+    );
+  }
+
+  Widget _buildEventProgressCard() {
+    final start = _formatDate(_eventDetail?['start_at']?.toString() ?? '');
+    final end = _formatDate(_eventDetail?['end_at']?.toString() ?? '');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_themeColor.withOpacity(0.08), _themeColor.withOpacity(0.02)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _themeColor.withOpacity(0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: _themeColor, borderRadius: BorderRadius.circular(999)),
+                  child: Text(_eventPhaseLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+                const Spacer(),
+                Icon(Icons.calendar_month_rounded, size: 16, color: _themeColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text('$start – $end', style: TextStyle(fontSize: 11, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: _eventProgress > 0 ? _eventProgress : null,
+                minHeight: 8,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(_themeColor),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _isComingSoon
+                  ? 'Event belum dimulai — persiapkan diri kamu!'
+                  : (_canSubmitActivity ? 'Event aktif — catat aktivitasmu sekarang.' : 'Event telah selesai.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _actionTile(
+              icon: Icons.history_rounded,
+              label: 'Riwayat',
+              subtitle: 'Aktivitas event',
+              filled: false,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EventActivityHistoryScreen(
+                      eventId: widget.eventId,
+                      themeColor: _themeColor,
+                      eventName: _eventDetail?['name'] ?? 'Event',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _actionTile(
+              icon: Icons.add_circle_rounded,
+              label: _isComingSoon ? 'Belum Mulai' : (_canSubmitActivity ? 'Catat' : 'Selesai'),
+              subtitle: 'Aktivitas baru',
+              filled: true,
+              enabled: _canSubmitActivity,
+              onTap: _canSubmitActivity
+                  ? () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventActivitySubmissionScreen(
+                            eventId: widget.eventId,
+                            themeColor: _themeColor,
+                          ),
+                        ),
+                      );
+                      if (result == true && mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EventActivityHistoryScreen(
+                              eventId: widget.eventId,
+                              themeColor: _themeColor,
+                              eventName: _eventDetail?['name'] ?? 'Event',
+                              isFromSubmission: true,
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required bool filled,
+    bool enabled = true,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: filled ? _themeColor : Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: filled ? 2 : 0,
+      shadowColor: _themeColor.withOpacity(0.3),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 88,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: filled ? null : Border.all(color: _themeColor.withOpacity(0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: filled ? Colors.white : _themeColor, size: 22),
+              const Spacer(),
+              Text(
+                label,
+                style: TextStyle(
+                  color: filled ? Colors.white : _themeColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: filled ? Colors.white70 : Colors.grey.shade600,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET AVATAR DENGAN FALLBACK IKON JIKA GAMBAR GAGAL DIMUAT ---
+  Widget _buildAvatarImage(String avatarUrl, double radius) {
+    return ClipOval(
+      child: Image.network(
+        avatarUrl,
+        width: radius * 2,
+        height: radius * 2,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: radius * 2,
+          height: radius * 2,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: Icon(Icons.person, color: Colors.grey.shade400, size: radius),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final topThree = _leaderboardItems.where((e) => (e['rank'] ?? 99) <= 3).toList();
@@ -158,356 +423,223 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     String myXp = _currentUserStat != null ? _currentUserStat!['xp'].toString() : '0';
     String myDepartment = _getDepartmentName(_currentUserStat);
 
-    // Logika Avatar User Login
-    String? myProfilePhoto = _currentUserStat != null ? _currentUserStat!['profile_photo_url'] : null;
-    String myAvatarUrl = (myProfilePhoto != null && myProfilePhoto.isNotEmpty)
-        ? myProfilePhoto
-        : 'https://ui-avatars.com/api/?name=$myName&background=ffffff&color=${_themeColor.value.toRadixString(16).substring(2, 8)}';
+    final myAvatarUrl = _currentUserStat != null ? _resolveAvatarUrl(_currentUserStat, myName) : '';
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-            _eventDetail?['name'] ?? 'Detail Event',
-            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
-        ),
-      ),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: _themeColor))
           : Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _fetchEventData,
-            color: _themeColor,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- SECTION 1: BANNER EVENT ---
-                  _buildEventBanner(),
-
-                  // --- SECTION 2: TOMBOL CATAT AKTIVITAS ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    child: Row(
-                      children: [
-                        // Tombol Lihat Riwayat (Outlined)
-                        Expanded(
-                          child: SizedBox(
-                            height: 50,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => EventActivityHistoryScreen(
-                                      eventId: widget.eventId,
-                                      themeColor: _themeColor,
-                                      eventName: _eventDetail?['name'] ?? 'Event',
-                                    ),
+              children: [
+                RefreshIndicator(
+                  onRefresh: _fetchEventData,
+                  color: _themeColor,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverAppBar(
+                        expandedHeight: 300,
+                        pinned: true,
+                        backgroundColor: _themeColor,
+                        foregroundColor: Colors.white,
+                        flexibleSpace: FlexibleSpaceBar(
+                          background: _buildHeroBanner(),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildEventProgressCard(),
+                            _buildQuickActions(),
+                            _buildInfoSection('Deskripsi', _eventDetail?['description']?.toString() ?? '', Icons.description_rounded),
+                            _buildInfoSection('Aturan', _eventDetail?['rules']?.toString() ?? '', Icons.rule_rounded),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Leaderboard Event', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => EventLeaderboardScreen(
+                                            eventId: widget.eventId,
+                                            themeColor: _themeColor,
+                                            eventName: _eventDetail?['name'] ?? 'Leaderboard Event',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: Icon(Icons.leaderboard_rounded, size: 18, color: _themeColor),
+                                    label: Text('Lihat Semua', style: TextStyle(color: _themeColor, fontWeight: FontWeight.bold)),
                                   ),
-                                );
-                              },
-                              icon: Icon(Icons.history, color: _themeColor, size: 20),
-                              label: Text('Riwayat', style: TextStyle(color: _themeColor, fontSize: 14, fontWeight: FontWeight.bold)),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: _themeColor, width: 1.5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ],
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-
-                        // Tombol Catat Aktivitas (Solid)
-                        Expanded(
-                          flex: 1, // Atur flex kalau mau salah satu lebih lebar
-                          child: SizedBox(
-                            height: 50,
-                            child: ElevatedButton.icon(
-                              onPressed: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => EventActivitySubmissionScreen(
-                                      eventId: widget.eventId,
-                                      themeColor: _themeColor,
-                                    ),
-                                  ),
-                                );
-
-                                // Jika sukses submit
-                                if (result == true) {
-                                  if (!mounted) return;
-
-                                  // Lempar user ke halaman Riwayat Event dengan membawa "pesan rahasia"
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => EventActivityHistoryScreen(
-                                        eventId: widget.eventId,
-                                        themeColor: _themeColor,
-                                        eventName: _eventDetail?['name'] ?? 'Event',
-                                        isFromSubmission: true, // <-- FLAG INI SANGAT PENTING
+                            _buildPodium(topThree),
+                            const SizedBox(height: 12),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+                              child: Column(
+                                children: [
+                                  if (others.isEmpty && topThree.length < 4)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(32),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Colors.grey.shade200),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Icon(Icons.leaderboard_outlined, size: 40, color: Colors.grey.shade300),
+                                          const SizedBox(height: 8),
+                                          Text('Belum ada peserta di leaderboard.', style: TextStyle(color: Colors.grey.shade500)),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.add_circle, color: Colors.white, size: 20),
-                              label: const Text('Catat', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _themeColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ...others.map((item) => _buildListItem(item)),
+                                ],
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-
-                  // --- SECTION 3: LEADERBOARD HEADER ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Leaderboard', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D))),
-                        TextButton(
-                          onPressed: () {
-                            // --- TAMBAHKAN NAVIGASI KE LEADERBOARD EVENT ---
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => EventLeaderboardScreen(
-                                  eventId: widget.eventId,
-                                  themeColor: _themeColor,
-                                  eventName: _eventDetail?['name'] ?? 'Leaderboard Event',
-                                ),
-                              ),
-                            );
-                          },
-                          child: Text('View All >', style: TextStyle(color: _themeColor, fontWeight: FontWeight.bold)),
-                        )
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // --- SECTION 4: PODIUM TOP 3 ---
-                  _buildPodium(topThree),
-                  const SizedBox(height: 20),
-
-                  // --- SECTION 5: LIST LEADERBOARD RANK 4+ ---
-                  Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8F9FA),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
                       ),
-                    ),
-                    padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 120),
-                    child: Column(
-                      children: [
-                        if (others.isEmpty && topThree.length < 4)
-                          Padding(
-                            padding: const EdgeInsets.all(30.0),
+                    ],
+                  ),
+                ),
+                if (_currentUserStat != null)
+                  Positioned(
+                    bottom: 20,
+                    left: 20,
+                    right: 20,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [_themeColor, _themeColor.withOpacity(0.85)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(color: _themeColor.withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 6)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                            child: Text(myRank, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(width: 36, height: 36, child: _buildAvatarImage(myAvatarUrl, 16)),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.people_outline, size: 40, color: Colors.grey.shade300),
-                                const SizedBox(height: 8),
-                                Text('Belum ada data peringkat lainnya.', style: TextStyle(color: Colors.grey.shade500)),
+                                const Text('Peringkat Kamu', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500)),
+                                Text(myName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                if (myDepartment.isNotEmpty)
+                                  Text(myDepartment, style: const TextStyle(color: Colors.white70, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ],
                             ),
                           ),
-                        ...others.map((item) => _buildListItem(item)).toList(),
-                      ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                            child: Row(
+                              children: [
+                                Text(myXp, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                                const Text(' XP', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-          ),
-
-          // --- KOTAK FLOATING CURRENT USER (Sesuai warna tema event) ---
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_themeColor, _themeColor.withOpacity(0.85)],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: _themeColor.withOpacity(0.4),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                    child: Text(myRank, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white,
-                      backgroundImage: NetworkImage(myAvatarUrl),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Peringkat Kamu', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500)),
-                        Text(myName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        if (myDepartment.isNotEmpty)
-                          Text(myDepartment, style: const TextStyle(color: Colors.white70, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
-                    child: Row(
-                      children: [
-                        Text(myXp, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                        const Text(' XP', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
-      ),
     );
   }
 
-  // ===========================================================================
-  // WIDGET BANNER
-  // ===========================================================================
-  Widget _buildEventBanner() {
-    if (_eventDetail == null) return const SizedBox();
+  Widget _buildHeroBanner() {
+    if (_eventDetail == null) return Container(color: _themeColor);
 
     String name = _eventDetail!['name'] ?? '';
     String imageUrl = _eventDetail!['banner_image_url'] ?? '';
     String start = _formatDate(_eventDetail!['start_at'] ?? '');
     String end = _formatDate(_eventDetail!['end_at'] ?? '');
     String status = (_eventDetail!['status'] ?? '').toString().toUpperCase();
-
     Color statusBadgeColor = status == 'ACTIVE' ? Colors.greenAccent.shade400 : Colors.grey.shade400;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: double.infinity,
-          height: 220,
-          color: Colors.grey.shade200,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  debugPrint('Gagal memuat gambar event: $error');
-                  return Icon(Icons.image, size: 50, color: Colors.white54);
-                },
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      _themeColor.withOpacity(0.8),
-                      _themeColor,
-                    ],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: statusBadgeColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.circle, size: 8, color: Colors.black87),
-                            const SizedBox(width: 4),
-                            Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      name,
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_month, color: Colors.white, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$start - $end',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    )
-                  ],
-                ),
-              ),
-            ],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (imageUrl.isNotEmpty)
+          Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _themeColor))
+        else
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [_themeColor, _themeColor.withOpacity(0.6)]),
+            ),
+          ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black.withOpacity(0.1), Colors.black.withOpacity(0.75)],
+            ),
           ),
         ),
-      ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (_isComingSoon)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.orangeAccent, borderRadius: BorderRadius.circular(999)),
+                        child: const Text('Coming Soon', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(color: statusBadgeColor, borderRadius: BorderRadius.circular(999)),
+                      child: Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_month_rounded, color: Colors.white70, size: 16),
+                    const SizedBox(width: 6),
+                    Text('$start – $end', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -566,10 +698,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     String department = _getDepartmentName(item);
 
     // Logika Avatar untuk Podium
-    String? profilePhoto = item['profile_photo_url'];
-    String avatarUrl = (profilePhoto != null && profilePhoto.isNotEmpty)
-        ? profilePhoto
-        : 'https://ui-avatars.com/api/?name=$name&background=random&color=fff';
+    String avatarUrl = _resolveAvatarUrl(item, name);
 
     final medalColor = rank == 1
         ? const Color(0xFFFFC107)
@@ -679,10 +808,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     String department = _getDepartmentName(item);
 
     // Logika Avatar untuk List
-    String? profilePhoto = item['profile_photo_url'];
-    String avatarUrl = (profilePhoto != null && profilePhoto.isNotEmpty)
-        ? profilePhoto
-        : 'https://ui-avatars.com/api/?name=$name&background=random&color=fff';
+    String avatarUrl = _resolveAvatarUrl(item, name);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -702,11 +828,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: Text(rank, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 12),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.grey.shade200,
-            backgroundImage: NetworkImage(avatarUrl),
-          ),
+          SizedBox(width: 40, height: 40, child: _buildAvatarImage(avatarUrl, 20)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -730,6 +852,85 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: Text('$xp XP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _themeColor)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CollapsibleInfoCard extends StatefulWidget {
+  final String title;
+  final String content;
+  final IconData icon;
+  final Color color;
+
+  const _CollapsibleInfoCard({
+    required this.title,
+    required this.content,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  State<_CollapsibleInfoCard> createState() => _CollapsibleInfoCardState();
+}
+
+class _CollapsibleInfoCardState extends State<_CollapsibleInfoCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 0,
+      shadowColor: Colors.black.withOpacity(0.05),
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: widget.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(widget.icon, color: widget.color, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: widget.color),
+                      ),
+                    ),
+                    Icon(
+                      _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      color: Colors.grey.shade500,
+                    ),
+                  ],
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.content,
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.6),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
