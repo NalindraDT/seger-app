@@ -238,25 +238,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          // Tombol Back tetap dipertahankan
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.arrow_back, color: Colors.white),
                           ),
                           Image.asset(
                             'assets/images/logo_seger.png',
-                            height: 36,
+                            height: 45, // Diperbesar sedikit dari 36 agar proporsional dengan 2 baris teks
                             fit: BoxFit.contain,
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'SEGER',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              fontStyle: FontStyle.italic,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end, // Rata kanan
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'SEGER',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24, // Mengikuti ukuran font asli di halaman register
+                                  fontWeight: FontWeight.w900,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.0, // Memangkas jarak kosong vertikal
+                                ),
+                              ),
+                              const Text(
+                                'by KOMBALA',
+                                style: TextStyle(
+                                  color: Color(0xFFCCFF00), // Warna hijau lime/neon
+                                  fontSize: 10, // Dibuat ukuran 12 agar proporsional dengan font SEGER yang berukuran 24
+                                  fontWeight: FontWeight.w900,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

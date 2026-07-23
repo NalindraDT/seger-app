@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Padding(
           padding: EdgeInsets.only(bottom: 24.0, top: 16.0),
           child: Text(
-            'Login khusus pegawai PLN',
+            '',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
@@ -163,20 +163,35 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               Image.asset(
                                 'assets/images/logo_seger.png',
-                                height: 40, // Logo diperkecil
+                                height: 50, // Sedikit diperbesar agar proporsional dengan 2 baris teks
                                 fit: BoxFit.contain,
                               ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'SEGER',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                              const SizedBox(width: 8), // Jarak antara logo dan teks
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end, // Membuat tulisan sejajar di sebelah kanan
+                                mainAxisSize: MainAxisSize.min, // Agar tinggi column menyesuaikan isinya
+                                children: [
+                                  const Text(
+                                    'SEGER',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900,
+                                      fontStyle: FontStyle.italic,
+                                      height: 1.0, // Mengurangi jarak kosong (spasi) ke teks di bawahnya
+                                    ),
+                                  ),
+                                  const Text(
+                                    'by KOMBALA',
+                                    style: TextStyle(
+                                      color: Color(0xFFCCFF00), // Kode warna hijau muda (lime) mirip logo
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
-
                             ],
                           ),
                           // -------------------------------------------------------
