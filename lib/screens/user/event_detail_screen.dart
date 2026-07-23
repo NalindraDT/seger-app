@@ -206,16 +206,114 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return !now.isBefore(startAt) && !now.isAfter(endAt);
   }
 
-  Widget _buildInfoSection(String title, String content, IconData icon) {
-    if (content.trim().isEmpty) return const SizedBox.shrink();
+  Widget _buildEventInfoSection() {
+    final description = _eventDetail?['description']?.toString().trim() ?? '';
+    final rules = _eventDetail?['rules']?.toString().trim() ?? '';
+
+    if (description.isEmpty && rules.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: _CollapsibleInfoCard(
-        title: title,
-        content: content,
-        icon: icon,
-        color: _themeColor,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _themeColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.info_outline_rounded, color: _themeColor, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Informasi Event',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (description.isNotEmpty)
+              _buildInfoBlock(
+                title: 'Deskripsi',
+                content: description,
+                icon: Icons.description_outlined,
+              ),
+            if (description.isNotEmpty && rules.isNotEmpty)
+              Divider(height: 1, thickness: 1, color: Colors.grey.shade100, indent: 18, endIndent: 18),
+            if (rules.isNotEmpty)
+              _buildInfoBlock(
+                title: 'Aturan',
+                content: rules,
+                icon: Icons.rule_rounded,
+                isLast: true,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoBlock({
+    required String title,
+    required String content,
+    required IconData icon,
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 0, 18, isLast ? 18 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: _themeColor.withOpacity(0.85)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _themeColor,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.65,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -452,8 +550,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           children: [
                             _buildEventProgressCard(),
                             _buildQuickActions(),
-                            _buildInfoSection('Deskripsi', _eventDetail?['description']?.toString() ?? '', Icons.description_rounded),
-                            _buildInfoSection('Aturan', _eventDetail?['rules']?.toString() ?? '', Icons.rule_rounded),
+                            _buildEventInfoSection(),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                               child: Row(
@@ -852,85 +949,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: Text('$xp XP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _themeColor)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CollapsibleInfoCard extends StatefulWidget {
-  final String title;
-  final String content;
-  final IconData icon;
-  final Color color;
-
-  const _CollapsibleInfoCard({
-    required this.title,
-    required this.content,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  State<_CollapsibleInfoCard> createState() => _CollapsibleInfoCardState();
-}
-
-class _CollapsibleInfoCardState extends State<_CollapsibleInfoCard> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 0,
-      shadowColor: Colors.black.withOpacity(0.05),
-      child: InkWell(
-        onTap: () => setState(() => _expanded = !_expanded),
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: widget.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(widget.icon, color: widget.color, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.title,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: widget.color),
-                      ),
-                    ),
-                    Icon(
-                      _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                      color: Colors.grey.shade500,
-                    ),
-                  ],
-                ),
-                if (_expanded) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.content,
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.6),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

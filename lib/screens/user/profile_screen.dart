@@ -11,6 +11,9 @@ import 'package:http_parser/http_parser.dart';
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
+import 'package:pltuapp/screens/user/activity_history_screen.dart';
+import 'package:pltuapp/screens/user/streak_screen.dart';
+import 'package:pltuapp/screens/user/points_history_screen.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -30,6 +33,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   String _phoneNumber = '-';
   String _departmentName = '-';
   String _companyName = '-';
+  String? _departmentId;
+  String? _companyId;
   String? _profilePhotoUrl;
 
   // Statistik
@@ -150,6 +155,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _phoneNumber = data['phoneNumber'] ?? '-';
         _departmentName = data['departmentName'] ?? '-';
         _companyName = data['companyName'] ?? data['company_name'] ?? '-';
+        _departmentId = data['departmentId']?.toString();
+        _companyId = data['companyId']?.toString();
         _profilePhotoUrl = data['profilePhotoUrl'];
         _points = data['pointsBalance'] ?? 0;
         _exp = data['xpBalance'] ?? 0;
@@ -203,12 +210,19 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  Future<void> _updateProfileInfo(String name, String phone) async {
+  Future<void> _updateProfileInfo(String name, String phone, {String? departmentId, String? companyId}) async {
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
+
+      final body = <String, dynamic>{
+        "full_name": name,
+        "phone_number": phone,
+      };
+      if (departmentId != null) body["department_id"] = departmentId;
+      if (companyId != null) body["company_id"] = companyId;
 
       final response = await http.patch(
         Uri.parse('${ApiHelper.baseUrl}/users/profile'),
@@ -217,10 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          "full_name": name,
-          "phone_number": phone,
-        }),
+        body: jsonEncode(body),
       );
 
       Navigator.pop(context); // Tutup dialog loading
@@ -518,63 +529,132 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     final TextEditingController nameController = TextEditingController(text: _fullName);
     final TextEditingController phoneController = TextEditingController(text: _phoneNumber == '-' ? '' : _phoneNumber);
 
+    List<Map<String, dynamic>> departments = [];
+    List<Map<String, dynamic>> companies = [];
+    String? selectedDepartmentId = _departmentId;
+    String? selectedCompanyId = _companyId;
+    bool isLoadingOptions = true;
+
+    Future<void> loadOptions(StateSetter setSheetState) async {
+      setSheetState(() => isLoadingOptions = true);
+      try {
+        final deptRes = await http.get(Uri.parse('${ApiHelper.baseUrl}/departments?page=1&limit=100'));
+        final compRes = await http.get(Uri.parse('${ApiHelper.baseUrl}/companies?page=1&limit=100'));
+        if (deptRes.statusCode == 200) {
+          final json = jsonDecode(deptRes.body);
+          departments = (json['data']?['items'] ?? json['data'] ?? [])
+              .where((d) => d['is_active'] != false)
+              .cast<Map<String, dynamic>>()
+              .toList();
+        }
+        if (compRes.statusCode == 200) {
+          final json = jsonDecode(compRes.body);
+          companies = (json['data']?['items'] ?? json['data'] ?? [])
+              .where((c) => c['is_active'] != false)
+              .cast<Map<String, dynamic>>()
+              .toList();
+        }
+      } catch (_) {}
+      setSheetState(() => isLoadingOptions = false);
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 24, left: 24, right: 24,
-          ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Edit Profil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            if (isLoadingOptions && departments.isEmpty) {
+              loadOptions(setSheetState);
+            }
 
-                const Text('Nama Lengkap', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: _inputDecoration('Masukkan nama lengkap'),
-                  validator: (v) => v!.isEmpty ? 'Nama wajib diisi' : null,
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 24, left: 24, right: 24,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Edit Profil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    const Text('Nama Lengkap', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: nameController,
+                      decoration: _inputDecoration('Masukkan nama lengkap'),
+                      validator: (v) => v!.isEmpty ? 'Nama wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Nomor HP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration('Masukkan nomor HP (misal: 0812345678)'),
+                      validator: (v) => v!.isEmpty ? 'Nomor HP wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    if (isLoadingOptions)
+                      const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                    else ...[
+                      const Text('Departemen', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: departments.any((d) => d['id']?.toString() == selectedDepartmentId) ? selectedDepartmentId : null,
+                        decoration: _inputDecoration('Pilih departemen'),
+                        items: departments.map((d) => DropdownMenuItem(
+                          value: d['id']?.toString(),
+                          child: Text(d['name']?.toString() ?? '-'),
+                        )).toList(),
+                        onChanged: (v) => setSheetState(() => selectedDepartmentId = v),
+                        validator: (v) => v == null || v.isEmpty ? 'Departemen wajib dipilih' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Perusahaan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: companies.any((c) => c['id']?.toString() == selectedCompanyId) ? selectedCompanyId : null,
+                        decoration: _inputDecoration('Pilih perusahaan'),
+                        items: companies.map((c) => DropdownMenuItem(
+                          value: c['id']?.toString(),
+                          child: Text(c['name']?.toString() ?? '-'),
+                        )).toList(),
+                        onChanged: (v) => setSheetState(() => selectedCompanyId = v),
+                        validator: (v) => v == null || v.isEmpty ? 'Perusahaan wajib dipilih' : null,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (formKey.currentState!.validate()) {
+                            Navigator.pop(context);
+                            _updateProfileInfo(
+                              nameController.text,
+                              phoneController.text,
+                              departmentId: selectedDepartmentId,
+                              companyId: selectedCompanyId,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: primaryPurple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        child: const Text('Simpan Perubahan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(height: 16),
-
-                const Text('Nomor HP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: _inputDecoration('Masukkan nomor HP (misal: 0812345678)'),
-                  validator: (v) => v!.isEmpty ? 'Nomor HP wajib diisi' : null,
-                ),
-                const SizedBox(height: 24),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        Navigator.pop(context);
-                        _updateProfileInfo(nameController.text, phoneController.text);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: primaryPurple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    child: const Text('Simpan Perubahan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -747,11 +827,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatColumn(Icons.monetization_on, Colors.amber, '$_points', 'Total Poin'),
+                        _buildStatColumn(Icons.monetization_on, Colors.amber, '$_points', 'Total Poin', onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()));
+                        }),
                         Container(width: 1, height: 40, color: Colors.grey.shade200),
-                        _buildStatColumn(Icons.assignment, Colors.teal, '$_totalActivities', 'Total Aktivitas'),
+                        _buildStatColumn(Icons.assignment, Colors.teal, '$_totalActivities', 'Total Aktivitas', onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const ActivityHistoryScreen()));
+                        }),
                         Container(width: 1, height: 40, color: Colors.grey.shade200),
-                        _buildStatColumn(Icons.local_fire_department, Colors.orange, '$_streakDays', 'Hari Streak'),
+                        _buildStatColumn(Icons.local_fire_department, Colors.orange, '$_streakDays', 'Hari Streak', onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const StreakScreen()));
+                        }),
                       ],
                     ),
                   ),
@@ -889,18 +975,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildStatColumn(IconData icon, Color iconColor, String value, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: iconColor, size: 20),
-        ),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D))),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-      ],
+  Widget _buildStatColumn(IconData icon, Color iconColor, String value, String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D))),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ],
+      ),
     );
   }
 
@@ -997,13 +1086,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
   Widget _buildStreakBadgeCard() {
     String? streakImageUrl;
+    String? streakBadgeName;
     if (_streakBadge != null) {
       streakImageUrl = _streakBadge!['image'] ?? _streakBadge!['image_url'];
+      streakBadgeName = _streakBadge!['name']?.toString();
     }
 
-    bool hasStreakBadge = streakImageUrl != null && streakImageUrl.isNotEmpty;
+    bool hasStreakBadge = _streakBadge != null;
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StreakScreen())),
+      child: Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1017,10 +1110,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           SizedBox(
             width: 75, height: 75,
             child: BadgeNetworkImage(
-              imageUrl: hasStreakBadge ? streakImageUrl : null,
+              imageUrl: streakImageUrl,
               kind: BadgeImageKind.streak,
               width: 75,
               height: 75,
+              labelText: streakBadgeName,
             ),
           ),
           const SizedBox(width: 20),
@@ -1050,6 +1144,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           ),
         ],
       ),
+    ),
     );
   }
 }

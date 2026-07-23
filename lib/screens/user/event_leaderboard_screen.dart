@@ -396,82 +396,85 @@ class _EventLeaderboardScreenState extends State<EventLeaderboardScreen> {
             ? const Color(0xFFB0BEC5)
             : const Color(0xFFCD7F32);
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (hasCrown)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
-          ),
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10.0),
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [borderColor, borderColor.withOpacity(0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  boxShadow: [BoxShadow(color: borderColor.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
-                ),
-                child: CircleAvatar(
-                  radius: hasCrown ? 34 : 26,
-                  backgroundColor: Colors.white,
-                  child: ClipOval(
-                    child: Image.network(
-                      avatarUrl,
-                      width: hasCrown ? 66 : 50,
-                      height: hasCrown ? 66 : 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Icon(Icons.person, color: borderColor),
+    return GestureDetector(
+      onTap: () => _openParticipantProfile(item['user_id']?.toString()),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (hasCrown)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
+            ),
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(colors: [borderColor, borderColor.withOpacity(0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    boxShadow: [BoxShadow(color: borderColor.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  child: CircleAvatar(
+                    radius: hasCrown ? 34 : 26,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: Image.network(
+                        avatarUrl,
+                        width: hasCrown ? 66 : 50,
+                        height: hasCrown ? 66 : 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(Icons.person, color: borderColor),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(4),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: medalColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-              child: const Icon(Icons.military_tech, size: 12, color: Colors.white),
-            )
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        if (department.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: Text(
-              department,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(color: medalColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                child: const Icon(Icons.military_tech, size: 12, color: Colors.white),
+              )
+            ],
           ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: borderColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
-          child: Text('$xp XP', style: TextStyle(color: borderColor, fontWeight: FontWeight.bold, fontSize: 11)),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          height: height,
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          alignment: Alignment.topCenter,
-          padding: const EdgeInsets.only(top: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [podiumColor, podiumColor.withOpacity(0.35)]),
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
+          const SizedBox(height: 10),
+          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          if (department.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                department,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: borderColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+            child: Text('$xp XP', style: TextStyle(color: borderColor, fontWeight: FontWeight.bold, fontSize: 11)),
           ),
-          child: Text('$rank', style: TextStyle(color: borderColor, fontWeight: FontWeight.w900, fontSize: 22)),
-        ),
-      ],
+          const SizedBox(height: 10),
+          Container(
+            height: height,
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            alignment: Alignment.topCenter,
+            padding: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [podiumColor, podiumColor.withOpacity(0.35)]),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
+            ),
+            child: Text('$rank', style: TextStyle(color: borderColor, fontWeight: FontWeight.w900, fontSize: 22)),
+          ),
+        ],
+      ),
     );
   }
 

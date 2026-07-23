@@ -23,6 +23,9 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 
   // Variabel untuk Filter
   String _selectedStatus = 'Semua';
+  String _selectedTimeFilter = 'Semua';
+  String? _customDateFrom;
+  String? _customDateTo;
 
   final Color primaryPurple = const Color(0xFF5D44F8);
 
@@ -39,11 +42,15 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      String url = '${ApiHelper.baseUrl}/activities/history?page=$_currentPage&limit=10';
+      String url = '${ApiHelper.baseUrl}/activities/history?page=$_currentPage&limit=10&scope=all';
 
       if (_selectedStatus != 'Semua') {
         url += '&status=${_selectedStatus.toUpperCase()}';
       }
+
+      final dateRange = _resolveDateRange();
+      if (dateRange['from'] != null) url += '&date_from=${dateRange['from']}';
+      if (dateRange['to'] != null) url += '&date_to=${dateRange['to']}';
 
       final response = await http.get(
         Uri.parse(url),
@@ -67,7 +74,11 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           setState(() {
-            _activities = data['data']['activity_items'] ?? [];
+            final annual = data['data']['activity_items'] ?? [];
+            final event = data['data']['event_items'] ?? [];
+            final merged = [...List<dynamic>.from(annual), ...List<dynamic>.from(event)];
+            merged.sort((a, b) => (b['date'] ?? '').toString().compareTo((a['date'] ?? '').toString()));
+            _activities = merged;
             _currentPage = data['data']['pagination']['page'];
             _totalPages = data['data']['pagination']['totalPages'];
             _totalItems = data['data']['pagination']['totalItems'];
@@ -91,6 +102,64 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       });
       _fetchHistory();
     }
+  }
+
+  Map<String, String?> _resolveDateRange() {
+    if (_selectedTimeFilter == 'Custom') {
+      return {'from': _customDateFrom, 'to': _customDateTo};
+    }
+    final now = DateTime.now();
+    if (_selectedTimeFilter == '7 Hari') {
+      final from = now.subtract(const Duration(days: 7));
+      return {'from': _formatDateParam(from), 'to': _formatDateParam(now)};
+    }
+    if (_selectedTimeFilter == '30 Hari') {
+      final from = now.subtract(const Duration(days: 30));
+      return {'from': _formatDateParam(from), 'to': _formatDateParam(now)};
+    }
+    if (_selectedTimeFilter == '90 Hari') {
+      final from = now.subtract(const Duration(days: 90));
+      return {'from': _formatDateParam(from), 'to': _formatDateParam(now)};
+    }
+    return {'from': null, 'to': null};
+  }
+
+  String _formatDateParam(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickCustomDateRange() async {
+    final from = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365 * 2)),
+      lastDate: DateTime.now(),
+    );
+    if (from == null) return;
+    if (!mounted) return;
+    final to = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: from,
+      lastDate: DateTime.now(),
+    );
+    if (to == null) return;
+    setState(() {
+      _selectedTimeFilter = 'Custom';
+      _customDateFrom = _formatDateParam(from);
+      _customDateTo = _formatDateParam(to);
+      _currentPage = 1;
+    });
+    _fetchHistory();
+  }
+
+  void _changeTimeFilter(String filter) {
+    if (_selectedTimeFilter == filter) return;
+    setState(() {
+      _selectedTimeFilter = filter;
+      _currentPage = 1;
+    });
+    _fetchHistory();
   }
 
   void _changeFilter(String newStatus) {
@@ -175,8 +244,10 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        child: RefreshIndicator(
         onRefresh: () async {
           _currentPage = 1;
           await _fetchHistory();
@@ -200,7 +271,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
               const SizedBox(height: 20),
               ModernActivityStatsHeader(
                 accentColor: primaryPurple,
-                title: 'Total Aktivitas (Tahunan)',
+                title: 'Total Aktivitas',
                 subtitle: _selectedStatus == 'Semua' ? 'Semua Status' : _selectedStatus,
                 totalItems: _totalItems,
                 isLoading: _isLoading,
@@ -210,6 +281,25 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                 accentColor: primaryPurple,
                 selectedStatus: _selectedStatus,
                 onChanged: _changeFilter,
+              ),
+              const SizedBox(height: 12),
+              ModernSegmentFilterBar(
+                accentColor: primaryPurple,
+                selectedValue: _selectedTimeFilter,
+                onChanged: (filter) {
+                  if (filter == 'Custom') {
+                    _pickCustomDateRange();
+                  } else {
+                    _changeTimeFilter(filter);
+                  }
+                },
+                options: const [
+                  ModernFilterOption('Semua', 'Semua', Icons.grid_view_rounded),
+                  ModernFilterOption('7 Hari', '7 Hari', Icons.today_rounded),
+                  ModernFilterOption('30 Hari', '30 Hari', Icons.date_range_rounded),
+                  ModernFilterOption('90 Hari', '90 Hari', Icons.calendar_month_rounded),
+                  ModernFilterOption('Custom', 'Custom', Icons.edit_calendar_rounded),
+                ],
               ),
               const SizedBox(height: 24),
               _isLoading
@@ -234,6 +324,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                             return ModernActivityCard(
                               item: item,
                               accentColor: primaryPurple,
+                              eventName: item['event_name']?.toString(),
                               onTapDetail: () => _showDetailModal(item),
                               onTapImage: () {
                                 if (photo.isNotEmpty) {
@@ -255,6 +346,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

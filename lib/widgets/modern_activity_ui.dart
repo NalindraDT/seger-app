@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pltuapp/helpers/activity_display_metrics.dart';
 import 'package:pltuapp/helpers/activity_share_helper.dart';
 import 'package:pltuapp/models/activity_share_data.dart';
 
@@ -98,6 +99,79 @@ class ModernActivityStatsHeader extends StatelessWidget {
   }
 }
 
+class ModernFilterOption {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const ModernFilterOption(this.value, this.label, this.icon);
+}
+
+class ModernSegmentFilterBar extends StatelessWidget {
+  final Color accentColor;
+  final String selectedValue;
+  final ValueChanged<String> onChanged;
+  final List<ModernFilterOption> options;
+  final EdgeInsetsGeometry? padding;
+
+  const ModernSegmentFilterBar({
+    super.key,
+    required this.accentColor,
+    required this.selectedValue,
+    required this.onChanged,
+    required this.options,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding ?? EdgeInsets.zero,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: options.map((option) {
+            final selected = selectedValue == option.value;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => onChanged(option.value),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? accentColor : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: selected ? accentColor : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        option.icon,
+                        size: 15,
+                        color: selected ? Colors.white : accentColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        option.label,
+                        style: TextStyle(
+                          color: selected ? Colors.white : Colors.grey.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
 class ModernActivityFilterBar extends StatelessWidget {
   final Color accentColor;
   final String selectedStatus;
@@ -111,52 +185,19 @@ class ModernActivityFilterBar extends StatelessWidget {
   });
 
   static const _filters = [
-    ('Semua', Icons.grid_view_rounded),
-    ('Pending', Icons.hourglass_top_rounded),
-    ('Approved', Icons.verified_rounded),
-    ('Rejected', Icons.block_rounded),
+    ModernFilterOption('Semua', 'Semua', Icons.grid_view_rounded),
+    ModernFilterOption('Pending', 'Pending', Icons.hourglass_top_rounded),
+    ModernFilterOption('Approved', 'Approved', Icons.verified_rounded),
+    ModernFilterOption('Rejected', 'Rejected', Icons.block_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _filters.map((filter) {
-          final label = filter.$1;
-          final icon = filter.$2;
-          final selected = selectedStatus == label;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onChanged(label),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: selected ? accentColor : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: selected ? accentColor : Colors.grey.shade300),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 15, color: selected ? Colors.white : accentColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? Colors.white : Colors.grey.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return ModernSegmentFilterBar(
+      accentColor: accentColor,
+      selectedValue: selectedStatus,
+      onChanged: onChanged,
+      options: _filters,
     );
   }
 }
@@ -202,16 +243,9 @@ class ModernActivityCard extends StatelessWidget {
     final status = (item['status'] ?? 'UNKNOWN').toString();
     final color = statusColor(status);
     final type = item['type']?.toString() ?? 'Aktivitas';
-    final distance = item['distance_km']?.toString() ?? '0';
-    final pace = item['pace_min_per_km'];
     final photo = item['proof_photo']?.toString() ?? '';
     final date = item['date']?.toString() ?? '-';
-
-    final metrics = [
-      '$distance km',
-      formatDuration(item),
-      if (pace != null) '$pace min/km',
-    ].join(' · ');
+    final metrics = buildActivityMetricsSummary(item);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -370,7 +404,8 @@ Future<void> showModernActivityDetailSheet({
   if (status == 'APPROVED') statusIcon = Icons.check_circle_rounded;
   if (status == 'REJECTED') statusIcon = Icons.cancel_rounded;
 
-  String durationText = ModernActivityCard.formatDuration(item);
+  final inputMetrics = buildActivityInputMetrics(item);
+  final computedMetrics = buildActivityComputedMetrics(item);
 
   return showModalBottomSheet(
     context: context,
@@ -437,7 +472,7 @@ Future<void> showModernActivityDetailSheet({
                   ],
                 ),
                 const SizedBox(height: 20),
-                _detailGrid(accentColor, item, durationText),
+                _detailGrid(accentColor, item, inputMetrics, computedMetrics),
                 const SizedBox(height: 20),
                 if (item['source_link'] != null && item['source_link'].toString().isNotEmpty) ...[
                   const Text('Strava Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -495,34 +530,55 @@ Future<void> showModernActivityDetailSheet({
   );
 }
 
-Widget _detailGrid(Color accentColor, dynamic item, String durationText) {
-  return Column(
-    children: [
+Widget _detailGrid(
+  Color accentColor,
+  dynamic item,
+  List<ActivityDisplayMetric> inputMetrics,
+  List<ActivityDisplayMetric> computedMetrics,
+) {
+  final tiles = <Widget>[
+    _detailTile('Tipe', item['type']?.toString() ?? '-', accentColor, fullWidth: true),
+    _detailTile('Tanggal', item['date']?.toString() ?? '-', accentColor, fullWidth: true),
+  ];
+
+  for (var i = 0; i < inputMetrics.length; i += 2) {
+    tiles.add(const SizedBox(height: 10));
+    tiles.add(
       Row(
         children: [
-          Expanded(child: _detailTile('Jarak', '${item['distance_km'] ?? 0} km', accentColor)),
-          const SizedBox(width: 10),
-          Expanded(child: _detailTile('Durasi', durationText, accentColor)),
+          Expanded(child: _detailTile(inputMetrics[i].label, inputMetrics[i].value, accentColor)),
+          if (i + 1 < inputMetrics.length) ...[
+            const SizedBox(width: 10),
+            Expanded(child: _detailTile(inputMetrics[i + 1].label, inputMetrics[i + 1].value, accentColor)),
+          ] else
+            const Expanded(child: SizedBox()),
         ],
       ),
-      const SizedBox(height: 10),
-      Row(
-        children: [
-          Expanded(child: _detailTile('Tipe', item['type']?.toString() ?? '-', accentColor)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _detailTile(
-              'Pace',
-              item['pace_min_per_km'] != null ? '${item['pace_min_per_km']} min/km' : '-',
-              accentColor,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 10),
-      _detailTile('Tanggal', item['date']?.toString() ?? '-', accentColor, fullWidth: true),
-    ],
-  );
+    );
+  }
+
+  if (computedMetrics.isNotEmpty) {
+    tiles.add(const SizedBox(height: 14));
+    tiles.add(Text('Metrik', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey.shade700)));
+    tiles.add(const SizedBox(height: 8));
+    for (var i = 0; i < computedMetrics.length; i += 2) {
+      tiles.add(const SizedBox(height: 10));
+      tiles.add(
+        Row(
+          children: [
+            Expanded(child: _detailTile(computedMetrics[i].label, computedMetrics[i].value, accentColor)),
+            if (i + 1 < computedMetrics.length) ...[
+              const SizedBox(width: 10),
+              Expanded(child: _detailTile(computedMetrics[i + 1].label, computedMetrics[i + 1].value, accentColor)),
+            ] else
+              const Expanded(child: SizedBox()),
+          ],
+        ),
+      );
+    }
+  }
+
+  return Column(children: tiles);
 }
 
 Widget _detailTile(String label, String value, Color color, {bool fullWidth = false}) {

@@ -421,10 +421,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     // --- LOGIKA BADGE STREAK (Sama dengan Profil) ---
     String? streakImageUrl;
+    String? streakBadgeName;
     if (_streakBadge != null) {
       streakImageUrl = _streakBadge!['image'] ?? _streakBadge!['image_url'];
+      streakBadgeName = _streakBadge!['name']?.toString();
     }
-    bool hasStreakBadge = streakImageUrl != null && streakImageUrl.isNotEmpty;
+    bool hasStreakBadge = _streakBadge != null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -548,10 +550,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 ),
                                 child: Center(
                                   child: BadgeNetworkImage(
-                                    imageUrl: hasStreakBadge ? streakImageUrl : null,
+                                    imageUrl: streakImageUrl,
                                     kind: BadgeImageKind.streak,
                                     width: 55,
                                     height: 55,
+                                    labelText: streakBadgeName,
                                   ),
                                 ),
                               ),
@@ -771,10 +774,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Widget _buildDashboardStreakCard() {
     String? streakImageUrl;
+    String? streakBadgeName;
     if (_streakBadge != null) {
       streakImageUrl = _streakBadge!['image'] ?? _streakBadge!['image_url'];
+      streakBadgeName = _streakBadge!['name']?.toString();
     }
-    final hasStreakBadge = streakImageUrl != null && streakImageUrl.isNotEmpty;
+    final hasStreakBadge = _streakBadge != null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -800,6 +805,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 kind: BadgeImageKind.streak,
                 width: 48,
                 height: 48,
+                labelText: streakBadgeName,
               ),
             ),
           ),

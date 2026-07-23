@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:pltuapp/helpers/activity_display_metrics.dart';
+
+class ActivityShareStat {
+  final String label;
+  final String value;
+
+  const ActivityShareStat({
+    required this.label,
+    required this.value,
+  });
+}
 
 class ActivityShareData {
   final String activityType;
-  final String distanceKm;
-  final String durationMinutes;
-  final String? durationSeconds;
-  final String? paceMinPerKm;
   final String date;
   final String status;
   final String? proofPhotoUrl;
   final String? eventName;
+  final List<ActivityShareStat> stats;
 
   const ActivityShareData({
     required this.activityType,
-    required this.distanceKm,
-    required this.durationMinutes,
-    this.durationSeconds,
-    this.paceMinPerKm,
     required this.date,
     required this.status,
+    required this.stats,
     this.proofPhotoUrl,
     this.eventName,
   });
@@ -27,28 +32,26 @@ class ActivityShareData {
     dynamic item, {
     String? eventName,
   }) {
-    final seconds = item['duration_seconds'];
-    final pace = item['pace_min_per_km'];
+    final metrics = buildActivityDisplayMetrics(item);
+    var stats = metrics
+        .map((metric) => ActivityShareStat(label: metric.label.toUpperCase(), value: metric.value))
+        .toList();
+
+    if (stats.isEmpty) {
+      stats = [
+        ActivityShareStat(label: 'JARAK', value: '${item['distance_km'] ?? 0} km'),
+        ActivityShareStat(label: 'DURASI', value: formatDurationValue(item)),
+      ];
+    }
 
     return ActivityShareData(
       activityType: item['type']?.toString() ?? 'Aktivitas',
-      distanceKm: item['distance_km']?.toString() ?? '0',
-      durationMinutes: item['duration_minutes']?.toString() ?? '0',
-      durationSeconds: seconds != null ? seconds.toString() : null,
-      paceMinPerKm: pace != null ? pace.toString() : null,
       date: item['date']?.toString() ?? '-',
       status: item['status']?.toString() ?? 'UNKNOWN',
       proofPhotoUrl: item['proof_photo']?.toString(),
-      eventName: eventName,
+      eventName: eventName ?? item['event_name']?.toString(),
+      stats: stats,
     );
-  }
-
-  String get formattedDuration {
-    final minutes = durationMinutes;
-    if (durationSeconds != null && durationSeconds != '0' && durationSeconds!.isNotEmpty) {
-      return '$minutes menit $durationSeconds detik';
-    }
-    return '$minutes menit';
   }
 
   Color get statusColor {
@@ -72,10 +75,10 @@ class ActivityShareData {
       buffer.writeln('🎯 Event: $eventName');
     }
 
-    buffer.writeln('📏 $distanceKm km • ⏱ $formattedDuration');
-    if (paceMinPerKm != null && paceMinPerKm!.isNotEmpty) {
-      buffer.writeln('🏃 Pace: $paceMinPerKm min/km');
+    for (final stat in stats) {
+      buffer.writeln('• ${stat.label}: ${stat.value}');
     }
+
     buffer
       ..writeln('📅 $date')
       ..writeln('✅ Status: $statusLabel')

@@ -24,6 +24,7 @@ class BadgeNetworkImage extends StatelessWidget {
     this.opacity = 1.0,
     this.fallbackIcon,
     this.fallbackIconColor,
+    this.labelText,
   });
 
   final String? imageUrl;
@@ -34,13 +35,37 @@ class BadgeNetworkImage extends StatelessWidget {
   final double opacity;
   final IconData? fallbackIcon;
   final Color? fallbackIconColor;
+  final String? labelText;
 
   @override
   Widget build(BuildContext context) {
-    final defaultUrl = BadgeDefaults.urlFor(kind);
     final trimmed = imageUrl?.trim();
-    final primaryUrl =
-        (trimmed != null && trimmed.isNotEmpty) ? trimmed : defaultUrl;
+    if (trimmed == null || trimmed.isEmpty) {
+      if (labelText != null && labelText!.trim().isNotEmpty) {
+        final baseSize = width ?? height ?? 40;
+        return Container(
+          width: width,
+          height: height,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: (fallbackIconColor ?? primaryPurpleFallback()).withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            labelText!.trim().substring(0, 1).toUpperCase(),
+            style: TextStyle(
+              color: fallbackIconColor ?? primaryPurpleFallback(),
+              fontWeight: FontWeight.bold,
+              fontSize: baseSize * 0.4,
+            ),
+          ),
+        );
+      }
+      return _iconFallback();
+    }
+
+    final defaultUrl = BadgeDefaults.urlFor(kind);
+    final primaryUrl = trimmed;
 
     Widget image = Image.network(
       primaryUrl,
@@ -81,4 +106,6 @@ class BadgeNetworkImage extends StatelessWidget {
       size: baseSize * 0.75,
     );
   }
+
+  Color primaryPurpleFallback() => Colors.deepPurple;
 }

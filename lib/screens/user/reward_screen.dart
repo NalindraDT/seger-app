@@ -302,6 +302,7 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
     final adminNote = item['admin_note']?.toString();
     final processedAt = item['processed_at']?.toString();
     final requestedAt = item['requested_at']?.toString();
+    final receivedAt = item['received_at']?.toString();
 
     Color statusColor = Colors.orange;
     if (status == 'PROCESSED' || status == 'RECEIVED') {
@@ -343,20 +344,118 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
                 ),
                 child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
-              const SizedBox(height: 16),
-              _buildDetailRow('Diminta', _formatDateTime(requestedAt)),
-              const SizedBox(height: 8),
-              _buildDetailRow('Diproses', _formatDateTime(processedAt)),
-              if (adminNote != null && adminNote.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text('Catatan Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                Text(adminNote, style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4)),
-              ],
+              const SizedBox(height: 20),
+              _buildRedemptionTimeline(
+                status: status,
+                requestedAt: requestedAt,
+                processedAt: processedAt,
+                receivedAt: receivedAt,
+                adminNote: adminNote,
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRedemptionTimeline({
+    required String status,
+    String? requestedAt,
+    String? processedAt,
+    String? receivedAt,
+    String? adminNote,
+  }) {
+    final isRejected = status == 'REJECTED';
+    final isReceived = status == 'RECEIVED';
+    final isProcessed = status == 'PROCESSED' || isReceived;
+    final isPending = status == 'PENDING';
+
+    Widget step({
+      required String title,
+      required String subtitle,
+      required bool done,
+      required bool active,
+      required bool failed,
+      required IconData icon,
+    }) {
+      final color = failed
+          ? Colors.red
+          : done
+              ? Colors.green
+              : active
+                  ? primaryPurple
+                  : Colors.grey.shade400;
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: 2),
+                ),
+                child: Icon(
+                  failed ? Icons.close : (done ? Icons.check : icon),
+                  size: 16,
+                  color: color,
+                ),
+              ),
+              Container(width: 2, height: 36, color: Colors.grey.shade300),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: active || done || failed ? Colors.black87 : Colors.grey)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        step(
+          title: 'Permintaan Diajukan',
+          subtitle: _formatDateTime(requestedAt),
+          done: true,
+          active: isPending,
+          failed: false,
+          icon: Icons.send,
+        ),
+        step(
+          title: isRejected ? 'Ditolak Admin' : 'Diproses Admin',
+          subtitle: isRejected
+              ? '${_formatDateTime(processedAt)}${adminNote != null && adminNote.isNotEmpty ? '\nCatatan: $adminNote' : ''}'
+              : (isProcessed ? _formatDateTime(processedAt) : 'Menunggu verifikasi admin'),
+          done: isProcessed || isRejected,
+          active: isPending,
+          failed: isRejected,
+          icon: Icons.admin_panel_settings,
+        ),
+        if (!isRejected)
+          step(
+            title: 'Hadiah Diterima',
+            subtitle: isReceived ? _formatDateTime(receivedAt) : (isProcessed ? 'Konfirmasi penerimaan hadiah' : 'Menunggu tahap sebelumnya'),
+            done: isReceived,
+            active: isProcessed && !isReceived,
+            failed: false,
+            icon: Icons.card_giftcard,
+          ),
+      ],
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
+import 'package:pltuapp/widgets/modern_activity_ui.dart';
 
 class ParticipantProfileScreen extends StatefulWidget {
   final String userId;
@@ -19,6 +20,8 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
   Map<String, dynamic>? _profile;
   List<dynamic> _badges = [];
   List<dynamic> _activities = [];
+  int _activityPage = 1;
+  int _activityTotalPages = 1;
 
   final Color primaryPurple = const Color(0xFF5D44F8);
   final Color bgColor = const Color(0xFFF8F9FA);
@@ -67,7 +70,7 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
       }
 
       final activitiesRes = await http.get(
-        Uri.parse('${ApiHelper.baseUrl}/users/${widget.userId}/activities?page=1&limit=10'),
+        Uri.parse('${ApiHelper.baseUrl}/users/${widget.userId}/activities?page=$_activityPage&limit=10'),
         headers: headers,
       );
       if (!_checkAuth(activitiesRes.statusCode)) {
@@ -92,7 +95,18 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
       if (activitiesRes.statusCode == 200) {
         final data = jsonDecode(activitiesRes.body);
         if (data['success'] == true) {
-          _activities = data['data']['items'] ?? data['data']['activity_items'] ?? [];
+          final payload = data['data'];
+          if (payload['items'] != null) {
+            _activities = payload['items'] ?? [];
+          } else {
+            final annual = payload['activity_items'] ?? [];
+            final event = payload['event_items'] ?? [];
+            final merged = [...List<dynamic>.from(annual), ...List<dynamic>.from(event)];
+            merged.sort((a, b) => (b['date'] ?? '').toString().compareTo((a['date'] ?? '').toString()));
+            _activities = merged;
+          }
+          _activityPage = payload['pagination']?['page'] ?? 1;
+          _activityTotalPages = payload['pagination']?['totalPages'] ?? 1;
         }
       }
     } catch (_) {
@@ -126,11 +140,52 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
     }
   }
 
-  String _formatDuration(dynamic minutes, dynamic seconds) {
-    final m = int.tryParse(minutes?.toString() ?? '0') ?? 0;
-    final s = int.tryParse(seconds?.toString() ?? '0') ?? 0;
-    if (s > 0) return '${m}m ${s}s';
-    return '${m}m';
+  void _showZoomableImage(String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              child: Image.network(imageUrl, fit: BoxFit.contain),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showActivityDetail(dynamic item) {
+    final photo = item['proof_photo']?.toString() ?? '';
+    showModernActivityDetailSheet(
+      context: context,
+      item: item,
+      accentColor: primaryPurple,
+      onZoomPhoto: () {
+        if (photo.isNotEmpty) {
+          Navigator.pop(context);
+          _showZoomableImage(photo);
+        }
+      },
+    );
+  }
+
+  void _changeActivityPage(int page) {
+    if (page < 1 || page > _activityTotalPages || page == _activityPage) return;
+    setState(() => _activityPage = page);
+    _fetchData();
   }
 
   @override
@@ -327,8 +382,42 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
                           child: Text('Belum ada aktivitas.', style: TextStyle(color: Colors.grey)),
                         ),
                       )
-                    else
-                      ..._activities.map((item) => _buildActivityItem(item)).toList(),
+                    else ...[
+                      ..._activities.map((item) {
+                        final photo = item['proof_photo']?.toString() ?? '';
+                        return ModernActivityCard(
+                          item: item,
+                          accentColor: primaryPurple,
+                          eventName: item['event_name']?.toString(),
+                          onTapDetail: () => _showActivityDetail(item),
+                          onTapImage: () {
+                            if (photo.isNotEmpty) {
+                              _showZoomableImage(photo);
+                            } else {
+                              _showActivityDetail(item);
+                            }
+                          },
+                        );
+                      }),
+                      if (_activityTotalPages > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                onPressed: _activityPage > 1 ? () => _changeActivityPage(_activityPage - 1) : null,
+                                icon: const Icon(Icons.chevron_left),
+                              ),
+                              Text('$_activityPage / $_activityTotalPages'),
+                              IconButton(
+                                onPressed: _activityPage < _activityTotalPages ? () => _changeActivityPage(_activityPage + 1) : null,
+                                icon: const Icon(Icons.chevron_right),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -352,54 +441,6 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
           Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(dynamic item) {
-    final type = item['type'] ?? item['activity_type'] ?? 'Aktivitas';
-    final distance = item['distance_km']?.toString() ?? '0';
-    final duration = _formatDuration(item['duration_minutes'], item['duration_seconds']);
-    final date = item['date'] ?? item['activity_date'] ?? '-';
-    final pace = item['pace_min_per_km'];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: primaryPurple.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.directions_run, color: primaryPurple, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(type.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 4),
-                Text(
-                  '$distance km • $duration${pace != null ? ' • ${pace.toString()} min/km' : ''}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 4),
-                Text(date.toString(), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-              ],
-            ),
-          ),
         ],
       ),
     );

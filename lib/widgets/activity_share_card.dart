@@ -118,23 +118,7 @@ class ActivityShareCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(child: _buildStatBox('JARAK', '${data.distanceKm} km')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildStatBox('DURASI', data.formattedDuration)),
-                ],
-              ),
-            ),
-            if (data.paceMinPerKm != null && data.paceMinPerKm!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildStatBox('PACE', '${data.paceMinPerKm} min/km'),
-              ),
-            ],
+            ..._buildStatRows(),
             const SizedBox(height: 16),
             if (hasPhoto)
               Padding(
@@ -163,34 +147,41 @@ class ActivityShareCard extends StatelessWidget {
                   top: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Active Today, Stronger Tomorrow',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'PLTU RUN',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Active Today, Stronger Tomorrow',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildStatRows() {
+    final rows = <Widget>[];
+    for (var i = 0; i < data.stats.length; i += 2) {
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : 12, left: 20, right: 20),
+          child: Row(
+            children: [
+              Expanded(child: _buildStatBox(data.stats[i].label, data.stats[i].value)),
+              if (i + 1 < data.stats.length) ...[
+                const SizedBox(width: 12),
+                Expanded(child: _buildStatBox(data.stats[i + 1].label, data.stats[i + 1].value)),
+              ] else
+                const Expanded(child: SizedBox()),
+            ],
+          ),
+        ),
+      );
+    }
+    return rows;
   }
 
   Widget _buildStatBox(String label, String value) {

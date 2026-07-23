@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/screens/user/participant_profile_screen.dart';
 import 'package:pltuapp/screens/user/department_members_leaderboard_screen.dart';
+import 'package:pltuapp/widgets/modern_activity_ui.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -490,38 +491,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   }
 
   Widget _buildDepartmentPeriodFilter() {
-    const periods = [
-      {'id': 'daily', 'label': 'Harian'},
-      {'id': 'weekly', 'label': 'Mingguan'},
-      {'id': 'monthly', 'label': 'Bulanan'},
-      {'id': 'annual', 'label': 'Tahunan'},
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: periods.map((period) {
-            final selected = _departmentPeriod == period['id'];
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(period['label']!),
-                selected: selected,
-                onSelected: (_) => _changeDepartmentPeriod(period['id']!),
-                selectedColor: primaryPurple.withOpacity(0.15),
-                labelStyle: TextStyle(
-                  color: selected ? primaryPurple : Colors.grey.shade700,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-                side: BorderSide(color: selected ? primaryPurple : Colors.grey.shade300),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
+    return ModernSegmentFilterBar(
+      accentColor: primaryPurple,
+      selectedValue: _departmentPeriod,
+      onChanged: _changeDepartmentPeriod,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      options: const [
+        ModernFilterOption('daily', 'Harian', Icons.today_rounded),
+        ModernFilterOption('weekly', 'Mingguan', Icons.date_range_rounded),
+        ModernFilterOption('monthly', 'Bulanan', Icons.calendar_month_rounded),
+        ModernFilterOption('annual', 'Tahunan', Icons.calendar_today_rounded),
+      ],
     );
   }
 
@@ -644,81 +624,84 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     // Logika Avatar untuk Podium
     String avatarUrl = _resolveAvatarUrl(item, name);
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (hasCrown)
-          const Icon(Icons.workspace_premium, color: Colors.amber, size: 36),
+    return GestureDetector(
+      onTap: () => _openParticipantProfile(item['user_id']?.toString()),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (hasCrown)
+            const Icon(Icons.workspace_premium, color: Colors.amber, size: 36),
 
-        Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10.0),
-              child: Container(
-                width: hasCrown ? 72 : 56,
-                height: hasCrown ? 72 : 56,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: themeColor, width: 3),
+          Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: Container(
+                  width: hasCrown ? 72 : 56,
+                  height: hasCrown ? 72 : 56,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: themeColor, width: 3),
+                  ),
+                  child: _buildAvatarImage(avatarUrl, hasCrown ? 33 : 25),
                 ),
-                child: _buildAvatarImage(avatarUrl, hasCrown ? 33 : 25),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: themeColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: Text(
-                  '$rank',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
-              ),
-            )
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
-        ),
-        if (department.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: Text(
-              department,
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: themeColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Text(
+                    '$rank',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
+                ),
+              )
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+              name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+          ),
+          if (department.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                department,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(xp, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text(' Exp', style: TextStyle(color: Colors.grey, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: height,
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: podiumColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
             ),
           ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(xp, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12)),
-            const Text(' Exp', style: TextStyle(color: Colors.grey, fontSize: 10)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: height,
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: podiumColor,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

@@ -28,10 +28,15 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   final _formKey = GlobalKey<FormState>();
 
   // Controller input text
-  final TextEditingController _distanceController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
-  final TextEditingController _durationSecondsController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
+  final Map<String, TextEditingController> _fieldControllers = {};
+  List<dynamic> _allowedActivities = [];
+
+  static const List<Map<String, dynamic>> _defaultInputFields = [
+    {'key': 'distance_km', 'label': 'Jarak', 'type': 'number', 'unit': 'km', 'required': true},
+    {'key': 'duration_minutes', 'label': 'Durasi', 'type': 'number', 'unit': 'menit', 'required': true},
+    {'key': 'duration_seconds', 'label': 'Detik', 'type': 'number', 'unit': 'detik', 'required': false},
+  ];
 
   // Variabel untuk Dropdown Dinamis (Aktivitas)
   List<dynamic> _activityTypes = [];
@@ -40,7 +45,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
 
   // Variabel untuk Dropdown (Metode Pencatatan)
   String? _selectedRecordedVia;
-  final List<String> _recordedViaOptions = ['Strava', 'Smartwatch', 'Manual'];
+  final List<String> _recordedViaOptions = ['Strava', 'Smartwatch'];
 
   File? _imageFile;
   bool _isLoadingSubmit = false;
@@ -54,17 +59,95 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   @override
   void initState() {
     super.initState();
-    _fetchActivityTypes();
+    _fetchEventAndTypes();
   }
 
   @override
   void dispose() {
-    _distanceController.dispose();
-    _durationController.dispose();
-    _durationSecondsController.dispose();
+    for (final controller in _fieldControllers.values) {
+      controller.dispose();
+    }
     _linkController.dispose();
     _notificationTimer?.cancel();
     super.dispose();
+  }
+
+  Map<String, dynamic>? get _selectedAllowedConfig {
+    if (_selectedActivityTypeId == null) return null;
+    for (final item in _allowedActivities) {
+      if (item['activity_type_id'].toString() == _selectedActivityTypeId) {
+        return item as Map<String, dynamic>;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? get _selectedType {
+    if (_selectedActivityTypeId == null) return null;
+    for (final item in _activityTypes) {
+      if (item['id'].toString() == _selectedActivityTypeId) {
+        return item as Map<String, dynamic>;
+      }
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> get _activeInputFields {
+    final allowedFields = _selectedAllowedConfig?['input_fields'];
+    if (allowedFields is List && allowedFields.isNotEmpty) {
+      return allowedFields
+          .where((field) => field is Map && field['type'] == 'number')
+          .map((field) => Map<String, dynamic>.from(field as Map))
+          .toList();
+    }
+    final typeFields = _selectedType?['input_fields'];
+    if (typeFields is List && typeFields.isNotEmpty) {
+      return typeFields
+          .where((field) => field is Map && field['type'] == 'number')
+          .map((field) => Map<String, dynamic>.from(field as Map))
+          .toList();
+    }
+    return _defaultInputFields.map((field) => Map<String, dynamic>.from(field)).toList();
+  }
+
+  void _syncFieldControllers() {
+    final activeKeys = _activeInputFields.map((field) => field['key'].toString()).toSet();
+    for (final key in _fieldControllers.keys.toList()) {
+      if (!activeKeys.contains(key)) {
+        _fieldControllers.remove(key)?.dispose();
+      }
+    }
+    for (final field in _activeInputFields) {
+      final key = field['key'].toString();
+      _fieldControllers.putIfAbsent(key, () => TextEditingController());
+    }
+  }
+
+  String _fieldValue(String key, {String fallback = '0'}) {
+    return _fieldControllers[key]?.text.trim().isNotEmpty == true
+        ? _fieldControllers[key]!.text.trim()
+        : fallback;
+  }
+
+  bool get _requiresSourceLink {
+    return _activeInputFields.any((field) => field['key'] == 'source_link') ||
+        _selectedRecordedVia?.toLowerCase() == 'strava';
+  }
+
+  Widget? _buildRestrictionHint() {
+    final config = _selectedAllowedConfig;
+    if (config == null) return null;
+    final hints = <String>[];
+    if (config['min_distance_km'] != null) hints.add('Min jarak: ${config['min_distance_km']} km');
+    if (config['min_duration_minutes'] != null) hints.add('Min durasi: ${config['min_duration_minutes']} menit');
+    if (config['min_calories'] != null) hints.add('Min kalori: ${config['min_calories']} kcal');
+    if (config['max_submissions_per_day'] != null) hints.add('Max/hari: ${config['max_submissions_per_day']}');
+    if (config['max_submissions_total'] != null) hints.add('Max total: ${config['max_submissions_total']}');
+    if (hints.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(hints.join(' • '), style: TextStyle(fontSize: 12, color: widget.themeColor)),
+    );
   }
 
   // ===========================================================================
@@ -96,11 +179,31 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
     return true; // Token aman
   }
 
-  // --- Fungsi mengambil data Dropdown dari API ---
-  Future<void> _fetchActivityTypes() async {
+  Future<void> _fetchEventAndTypes() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
+
+      final eventResponse = await http.get(
+        Uri.parse('${ApiHelper.baseUrl}/events/${widget.eventId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (!_checkAuth(eventResponse.statusCode)) {
+        setState(() => _isLoadingTypes = false);
+        return;
+      }
+
+      List<dynamic> allowed = [];
+      if (eventResponse.statusCode == 200) {
+        final eventData = jsonDecode(eventResponse.body);
+        if (eventData['success'] == true) {
+          allowed = eventData['data']['allowed_activities'] ?? [];
+        }
+      }
 
       final response = await http.get(
         Uri.parse('${ApiHelper.baseUrl}/activities/types'),
@@ -110,7 +213,6 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
         },
       );
 
-      // --- CEK SESI 401 ---
       if (!_checkAuth(response.statusCode)) {
         setState(() => _isLoadingTypes = false);
         return;
@@ -119,8 +221,16 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          final allTypes = data['data'] as List<dynamic>;
+          final filtered = allowed.isEmpty
+              ? allTypes
+              : allTypes.where((type) {
+                  return allowed.any((item) => item['activity_type_id'].toString() == type['id'].toString());
+                }).toList();
+
           setState(() {
-            _activityTypes = data['data'];
+            _allowedActivities = allowed;
+            _activityTypes = filtered;
             _isLoadingTypes = false;
           });
         }
@@ -197,11 +307,15 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
 
       request.fields['activity_type_id'] = _selectedActivityTypeId!;
       request.fields['activity_date'] = activityDate;
-      request.fields['distance_km'] = _distanceController.text;
-      request.fields['duration_minutes'] = _durationController.text;
-      request.fields['duration_seconds'] = _durationSecondsController.text.isEmpty
-          ? '0'
-          : _durationSecondsController.text;
+      request.fields['distance_km'] = _fieldValue('distance_km', fallback: '0');
+      request.fields['duration_minutes'] = _fieldValue('duration_minutes', fallback: '1');
+      request.fields['duration_seconds'] = _fieldValue('duration_seconds', fallback: '0');
+      for (final key in ['calories', 'steps', 'elevation_m']) {
+        final value = _fieldValue(key, fallback: '');
+        if (value.isNotEmpty) {
+          request.fields[key] = value;
+        }
+      }
       request.fields['recorded_via'] = _selectedRecordedVia!; // Pakai nilai dropdown
       request.fields['source_link'] = _linkController.text;
 
@@ -307,6 +421,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
                     onChanged: (val) {
                       setState(() {
                         _selectedActivityTypeId = val;
+                        _syncFieldControllers();
                       });
                     },
                     validator: (value) => value == null ? 'Wajib dipilih' : null,
@@ -356,81 +471,33 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
                   ),
                   const SizedBox(height: 20),
 
-                  // 3. Jarak & Durasi
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Jarak', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _distanceController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true), // Keyboard desimal
-                              decoration: _inputDecoration('0', suffix: 'KM', icon: Icons.location_on_outlined),
-                              validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Durasi', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _durationController,
-                              keyboardType: TextInputType.number, // Keyboard angka biasa
-                              decoration: _inputDecoration('0', suffix: 'Menit', icon: Icons.access_time),
-                              validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (_buildRestrictionHint() != null) _buildRestrictionHint()!,
                   const SizedBox(height: 20),
 
-                  const Text('Detik', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _durationSecondsController,
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDecoration('0', suffix: 'Detik (0-59)', icon: Icons.timer_outlined),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return null;
-                      final parsed = int.tryParse(value);
-                      if (parsed == null) return 'Harus angka';
-                      if (parsed < 0 || parsed > 59) return 'Detik harus 0-59';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
+                  ..._buildDynamicInputFields(),
 
-                  // 4. Link Strava
-                  Text(
-                    _selectedRecordedVia?.toLowerCase() == 'strava'
-                        ? 'Link Strava (Wajib)'
-                        : 'Link Strava (Opsional)',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _linkController,
-                    keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('https://strava.app.link/xxxxxx', icon: Icons.link),
-                    validator: (value) {
-                      if (_selectedRecordedVia?.toLowerCase() == 'strava' &&
-                          (value == null || value.trim().isEmpty)) {
-                        return 'Link Strava wajib diisi';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
+                  if (_requiresSourceLink) ...[
+                    Text(
+                      _selectedRecordedVia?.toLowerCase() == 'strava'
+                          ? 'Link Strava (Wajib)'
+                          : 'Link Sumber (Opsional)',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _linkController,
+                      keyboardType: TextInputType.url,
+                      decoration: _inputDecoration('https://strava.app.link/xxxxxx', icon: Icons.link),
+                      validator: (value) {
+                        if (_selectedRecordedVia?.toLowerCase() == 'strava' &&
+                            (value == null || value.trim().isEmpty)) {
+                          return 'Link Strava wajib diisi';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // 5. Upload Bukti Foto
                   const Text('Upload Bukti', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -549,6 +616,45 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   }
 
   // --- Fungsi Dekorasi Input ---
+  List<Widget> _buildDynamicInputFields() {
+    if (_selectedActivityTypeId != null && _fieldControllers.isEmpty) {
+      _syncFieldControllers();
+    }
+
+    final widgets = <Widget>[];
+    for (final field in _activeInputFields) {
+      final key = field['key'].toString();
+      final label = field['label']?.toString() ?? key;
+      final unit = field['unit']?.toString();
+      final required = field['required'] == true;
+      final controller = _fieldControllers[key];
+
+      widgets.add(Text(label, style: const TextStyle(fontWeight: FontWeight.bold)));
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(TextFormField(
+        controller: controller,
+        keyboardType: key == 'distance_km'
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : TextInputType.number,
+        decoration: _inputDecoration('0', suffix: unit?.toUpperCase(), icon: Icons.edit_outlined),
+        validator: (value) {
+          if (required && (value == null || value.trim().isEmpty)) {
+            return 'Wajib diisi';
+          }
+          if (key == 'duration_seconds' && value != null && value.isNotEmpty) {
+            final parsed = int.tryParse(value);
+            if (parsed == null) return 'Harus angka';
+            if (parsed < 0 || parsed > 59) return 'Detik harus 0-59';
+          }
+          return null;
+        },
+      ));
+      widgets.add(const SizedBox(height: 20));
+    }
+
+    return widgets;
+  }
+
   InputDecoration _inputDecoration(String hint, {IconData? icon, String? suffix}) {
     return InputDecoration(
       hintText: hint,
