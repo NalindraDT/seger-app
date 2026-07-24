@@ -10,6 +10,7 @@ import 'package:pltuapp/screens/user/reward_screen.dart';
 import 'package:pltuapp/screens/user/event_detail_screen.dart';
 import 'package:pltuapp/screens/user/profile_screen.dart';
 import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
+import 'package:pltuapp/screens/user/notifications_screen.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
 
@@ -44,8 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Map<String, dynamic>? _streakBadge;
   List<dynamic> _earnedBadges = [];
 
-  int _unreadActivityNotifications = 0;
-  List<dynamic> _notifications = [];
+  int _unreadNotificationsTotal = 0;
 
   final Color primaryPurple = const Color(0xFF5D44F8);
   final Color primaryPink = const Color(0xFFE9005C);
@@ -68,7 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_selectedIndex == 0) {
         _fetchDashboardData(showLoading: false);
-      } else if (_selectedIndex == 1) {
         _fetchUnreadNotificationCounts();
       }
     });
@@ -133,75 +132,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final data = jsonDecode(response.body);
         if (data['success'] == true && mounted) {
           setState(() {
-            _unreadActivityNotifications = data['data']['activity_reviews'] ?? 0;
+            _unreadNotificationsTotal = data['data']['total'] ?? 0;
           });
         }
       }
     } catch (_) {}
   }
 
-  Future<void> _fetchNotifications() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null) return;
-
-      final response = await http.get(
-        Uri.parse('${ApiHelper.baseUrl}/users/notifications?page=1&limit=10'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (!_checkAuth(response)) return;
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true && mounted) {
-          setState(() {
-            _notifications = data['data']['items'] ?? [];
-          });
-        }
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _markNotificationRead(String notificationId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null) return;
-
-      await http.post(
-        Uri.parse('${ApiHelper.baseUrl}/users/notifications/mark-read'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'notification_ids': [notificationId]}),
-      );
-      await _fetchUnreadNotificationCounts();
-      await _fetchNotifications();
-    } catch (_) {}
-  }
-
-  String _formatNotificationTime(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
-    try {
-      final date = DateTime.parse(iso).toLocal();
-      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return iso;
-    }
-  }
-
-  IconData _notificationIcon(String? type) {
-    if (type == 'reward_redemption') return Icons.card_giftcard_rounded;
-    return Icons.directions_run_rounded;
-  }
-
-  Color _notificationColor(String? type, String title) {
-    if (type == 'reward_redemption') return primaryPink;
-    if ((title).toLowerCase().contains('ditolak')) return Colors.red;
-    if ((title).toLowerCase().contains('disetujui')) return Colors.green;
-    return primaryPurple;
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+    );
+    await _fetchUnreadNotificationCounts();
   }
 
   Future<void> _fetchDashboardData({bool showLoading = false}) async {
@@ -314,7 +257,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       }
 
       await _fetchUnreadNotificationCounts();
-      await _fetchNotifications();
 
     } catch (e) {
       debugPrint("Error fetching dashboard: $e");
@@ -332,29 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     });
     if (index == 0) {
       _fetchDashboardData(showLoading: false);
-    } else if (index == 1) {
-      _markActivityNotificationsRead();
     }
-  }
-
-  Future<void> _markActivityNotificationsRead() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null) return;
-
-      await http.post(
-        Uri.parse('${ApiHelper.baseUrl}/users/notifications/mark-read'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'type': 'activity_reviewed'}),
-      );
-      if (mounted) {
-        setState(() => _unreadActivityNotifications = 0);
-      }
-    } catch (_) {}
   }
 
   void _showLogoutDialog() {
@@ -439,12 +359,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildNavItem(icon: Icons.home_filled, label: 'Beranda', index: 0),
-                  _buildNavItem(
-                    icon: Icons.assignment_outlined,
-                    label: 'Aktivitas',
-                    index: 1,
-                    badgeCount: _unreadActivityNotifications,
-                  ),
+                  _buildNavItem(icon: Icons.assignment_outlined, label: 'Aktivitas', index: 1),
                 ],
               ),
               Column(
@@ -594,144 +509,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ],
                   ),
                   Row(
-                    // children: [
-                    //   // --- TAMBAHAN: AVATAR KECIL SEBAGAI PENGGANTI TOMBOL LOGOUT ---
-                    //   GestureDetector(
-                    //     onTap: () {
-                    //       // Jika diklik, pindah ke Tab Profil (Index 3)
-                    //       setState(() {
-                    //         _selectedIndex = 3;
-                    //       });
-                    //     },
-                    //     child: Container(
-                    //       width: 40,
-                    //       height: 40,
-                    //       decoration: BoxDecoration(
-                    //         shape: BoxShape.circle,
-                    //         color: primaryPurple.withOpacity(0.1),
-                    //         border: Border.all(color: primaryPurple, width: 1.5),
-                    //       ),
-                    //       child: Icon(Icons.person, color: primaryPurple, size: 24),
-                    //     ),
-                    //   ),
-                    //   // ---------------------------------------------------------------
-                    //   // const SizedBox(width: 12),
-                    //   // Stack(
-                    //   //   children: [
-                    //   //     Container(
-                    //   //       padding: const EdgeInsets.all(8),
-                    //   //       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300)),
-                    //   //       child: const Icon(Icons.notifications_none, color: Colors.black87),
-                    //   //     ),
-                    //   //     Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
-                    //   //   ],
-                    //   // ),
-                    // ],
+                    children: [
+                      GestureDetector(
+                        onTap: _openNotifications,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.grey.shade300),
+                                color: Colors.white,
+                              ),
+                              child: const Icon(Icons.notifications_none, color: Colors.black87, size: 24),
+                            ),
+                            if (_unreadNotificationsTotal > 0)
+                              Positioned(
+                                right: -4,
+                                top: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.white, width: 1.5),
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                  child: Text(
+                                    _unreadNotificationsTotal > 99 ? '99+' : '$_unreadNotificationsTotal',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-
-              if (_notifications.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Notifikasi',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D2D2D)),
-                    ),
-                    if (_notifications.any((n) => n['is_read'] == false))
-                      TextButton(
-                        onPressed: () async {
-                          final prefs = await SharedPreferences.getInstance();
-                          final token = prefs.getString('token');
-                          if (token == null) return;
-                          await http.post(
-                            Uri.parse('${ApiHelper.baseUrl}/users/notifications/mark-read'),
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': 'Bearer $token',
-                            },
-                            body: jsonEncode({}),
-                          );
-                          await _fetchUnreadNotificationCounts();
-                          await _fetchNotifications();
-                        },
-                        child: const Text('Tandai dibaca'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ..._notifications.take(5).map((notification) {
-                  final type = notification['type']?.toString();
-                  final title = notification['title']?.toString() ?? 'Notifikasi';
-                  final message = notification['message']?.toString() ?? '';
-                  final isRead = notification['is_read'] == true;
-                  final color = _notificationColor(type, title);
-
-                  return Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isRead ? Colors.grey.shade200 : color.withOpacity(0.35)),
-                    ),
-                    child: ListTile(
-                      onTap: () {
-                        if (!isRead && notification['id'] != null) {
-                          _markNotificationRead(notification['id'].toString());
-                        }
-                        if (type == 'activity_reviewed') {
-                          setState(() => _selectedIndex = 1);
-                        } else if (type == 'reward_redemption') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RewardScreen()),
-                          );
-                        }
-                      },
-                      leading: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(_notificationIcon(type), color: color, size: 22),
-                      ),
-                      title: Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isRead ? Colors.grey.shade700 : const Color(0xFF1F2937),
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.3)),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatNotificationTime(notification['created_at']?.toString()),
-                            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                          ),
-                        ],
-                      ),
-                      trailing: isRead
-                          ? null
-                          : Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                            ),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 14),
-              ],
 
               // --- CARD 1: RINGKASAN HARI INI DENGAN STREAK ---
               Container(
