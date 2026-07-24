@@ -1,15 +1,15 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http_parser/http_parser.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/helpers/multipart_file_helper.dart';
 import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
 import 'package:pltuapp/screens/user/activity_history_screen.dart';
 import 'package:pltuapp/screens/user/streak_screen.dart';
@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  Future<void> _uploadProfilePhoto(File croppedFile) async {
+  Future<void> _uploadProfilePhoto(XFile imageFile) async {
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
@@ -265,20 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         'Accept': 'application/json',
       });
 
-      String extension = croppedFile.path.split('.').last.toLowerCase();
-      String mimeSubtype = 'jpeg';
-
-      if (extension == 'png') {
-        mimeSubtype = 'png';
-      } else if (extension == 'jpg' || extension == 'jpeg') {
-        mimeSubtype = 'jpeg';
-      }
-
-      request.files.add(await http.MultipartFile.fromPath(
-        'photo',
-        croppedFile.path,
-        contentType: MediaType('image', mimeSubtype),
-      ));
+      request.files.add(await multipartFileFromXFile('photo', imageFile));
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
@@ -309,6 +296,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
     if (image == null) return;
 
+    if (kIsWeb) {
+      await _uploadProfilePhoto(image);
+      return;
+    }
+
     CroppedFile? croppedFile = await ImageCropper().cropImage(
       sourcePath: image.path,
       aspectRatio: const CropAspectRatio(ratioX: 1.0, ratioY: 1.0),
@@ -331,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
 
     if (croppedFile != null) {
-      _uploadProfilePhoto(File(croppedFile.path));
+      await _uploadProfilePhoto(XFile(croppedFile.path));
     }
   }
 

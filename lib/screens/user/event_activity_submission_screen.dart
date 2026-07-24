@@ -1,14 +1,14 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async'; // Tambahan untuk Timer Notifikasi
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart'; // Tambahan untuk MediaType
 import 'package:shared_preferences/shared_preferences.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/helpers/multipart_file_helper.dart';
+import 'package:pltuapp/widgets/picked_image_preview.dart';
 
 class EventActivitySubmissionScreen extends StatefulWidget {
   final String eventId; // Menerima ID event
@@ -47,7 +47,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   String? _selectedRecordedVia;
   final List<String> _recordedViaOptions = ['Strava', 'Smartwatch'];
 
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoadingSubmit = false;
   DateTime _selectedActivityDate = DateTime.now();
 
@@ -251,7 +251,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
 
     if (image != null) {
       setState(() {
-        _imageFile = File(image.path);
+        _imageFile = image;
       });
     }
   }
@@ -319,12 +319,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       request.fields['recorded_via'] = _selectedRecordedVia!; // Pakai nilai dropdown
       request.fields['source_link'] = _linkController.text;
 
-      // File dikirim dengan MediaType JPEG agar aman
-      request.files.add(await http.MultipartFile.fromPath(
-        'proof_photo',
-        _imageFile!.path,
-        contentType: MediaType('image', 'jpeg'),
-      ));
+      request.files.add(await multipartFileFromXFile('proof_photo', _imageFile!));
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
@@ -521,7 +516,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
                           Text('Format: JPG, PNG (Max 5MB)', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                         ],
                       )
-                          : Image.file(_imageFile!, height: 150, fit: BoxFit.contain),
+                          : PickedImagePreview(file: _imageFile!, height: 150),
                     ),
                   ),
                   const SizedBox(height: 30),

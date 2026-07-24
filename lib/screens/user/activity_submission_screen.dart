@@ -1,14 +1,14 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async'; // Tambahan untuk Timer Notifikasi
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/helpers/multipart_file_helper.dart';
+import 'package:pltuapp/widgets/picked_image_preview.dart';
 
 class ActivitySubmissionScreen extends StatefulWidget {
   const ActivitySubmissionScreen({Key? key}) : super(key: key);
@@ -39,7 +39,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
   String? _selectedRecordedVia;
   final List<String> _recordedViaOptions = ['Strava', 'Smartwatch'];
 
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoadingSubmit = false;
   DateTime _selectedActivityDate = DateTime.now();
 
@@ -186,7 +186,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
 
     if (image != null) {
       setState(() {
-        _imageFile = File(image.path);
+        _imageFile = image;
       });
     }
   }
@@ -296,11 +296,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
       request.fields['recorded_via'] = _selectedRecordedVia!;
       request.fields['source_link'] = _linkController.text;
 
-      request.files.add(await http.MultipartFile.fromPath(
-        'proof_photo',
-        _imageFile!.path,
-        contentType: MediaType('image', 'jpeg'),
-      ));
+      request.files.add(await multipartFileFromXFile('proof_photo', _imageFile!));
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
@@ -500,7 +496,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
                           Text('Format: JPG, PNG (Max 5MB)', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                         ],
                       )
-                          : Image.file(_imageFile!, height: 150, fit: BoxFit.contain),
+                          : PickedImagePreview(file: _imageFile!, height: 150),
                     ),
                   ),
                   const SizedBox(height: 30),
