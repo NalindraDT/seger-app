@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:pltuapp/helpers/activity_display_metrics.dart';
 import 'package:pltuapp/helpers/activity_share_helper.dart';
 import 'package:pltuapp/models/activity_share_data.dart';
@@ -246,6 +247,10 @@ class ModernActivityCard extends StatelessWidget {
     final photo = item['proof_photo']?.toString() ?? '';
     final date = item['date']?.toString() ?? '-';
     final metrics = buildActivityMetricsSummary(item);
+    final resolvedEventName = eventName ??
+        item['event_name']?.toString() ??
+        ((item['submission_scope']?.toString().toUpperCase() == 'EVENT') ? 'Event' : null);
+    final isEventActivity = resolvedEventName != null && resolvedEventName.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -313,6 +318,36 @@ class ModernActivityCard extends StatelessWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                  if (isEventActivity) ...[
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: accentColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(color: accentColor.withOpacity(0.25)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.emoji_events_rounded, size: 11, color: accentColor),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              resolvedEventName,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: accentColor,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 4),
                                   Text(
                                     metrics,
@@ -406,6 +441,19 @@ Future<void> showModernActivityDetailSheet({
 
   final inputMetrics = buildActivityInputMetrics(item);
   final computedMetrics = buildActivityComputedMetrics(item);
+  final sourceLink = item['source_link']?.toString() ?? '';
+
+  Future<void> openSourceLink() async {
+    if (sourceLink.isEmpty) return;
+    final uri = Uri.tryParse(sourceLink);
+    if (uri == null) return;
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak dapat membuka link.')),
+      );
+    }
+  }
 
   return showModalBottomSheet(
     context: context,
@@ -474,30 +522,37 @@ Future<void> showModernActivityDetailSheet({
                 const SizedBox(height: 20),
                 _detailGrid(accentColor, item, inputMetrics, computedMetrics),
                 const SizedBox(height: 20),
-                if (item['source_link'] != null && item['source_link'].toString().isNotEmpty) ...[
-                  const Text('Strava Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                if (sourceLink.isNotEmpty) ...[
+                  const Text('Link Aktivitas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: openSourceLink,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.link_rounded, color: accentColor, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            item['source_link'].toString(),
-                            style: TextStyle(color: accentColor, fontSize: 12),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
                         ),
-                      ],
+                        child: Row(
+                          children: [
+                            Icon(Icons.open_in_new_rounded, color: accentColor, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sourceLink,
+                                style: TextStyle(color: accentColor, fontSize: 12, decoration: TextDecoration.underline),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

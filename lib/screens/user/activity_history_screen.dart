@@ -24,6 +24,8 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   // Variabel untuk Filter
   String _selectedStatus = 'Semua';
   String _selectedTimeFilter = 'Semua';
+  String? _selectedEventId;
+  List<dynamic> _eventOptions = [];
   String? _customDateFrom;
   String? _customDateTo;
 
@@ -32,7 +34,49 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchEvents();
     _fetchHistory();
+    _markActivityNotificationsRead();
+  }
+
+  Future<void> _markActivityNotificationsRead() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) return;
+
+      await http.post(
+        Uri.parse('${ApiHelper.baseUrl}/users/notifications/mark-read'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'type': 'activity_reviewed'}),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _fetchEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final response = await http.get(
+        Uri.parse('${ApiHelper.baseUrl}/events?page=1&limit=100'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && mounted) {
+          final payload = data['data'];
+          final items = payload is List ? payload : (payload['items'] ?? []);
+          setState(() => _eventOptions = List<dynamic>.from(items));
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchHistory() async {
@@ -46,6 +90,10 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 
       if (_selectedStatus != 'Semua') {
         url += '&status=${_selectedStatus.toUpperCase()}';
+      }
+
+      if (_selectedEventId != null && _selectedEventId!.isNotEmpty) {
+        url += '&event_id=$_selectedEventId';
       }
 
       final dateRange = _resolveDateRange();
@@ -74,9 +122,14 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           setState(() {
-            final annual = data['data']['activity_items'] ?? [];
-            final event = data['data']['event_items'] ?? [];
-            final merged = [...List<dynamic>.from(annual), ...List<dynamic>.from(event)];
+            List<dynamic> merged;
+            if (data['data']['items'] != null) {
+              merged = List<dynamic>.from(data['data']['items'] ?? []);
+            } else {
+              final annual = data['data']['activity_items'] ?? [];
+              final event = data['data']['event_items'] ?? [];
+              merged = [...List<dynamic>.from(annual), ...List<dynamic>.from(event)];
+            }
             merged.sort((a, b) => (b['date'] ?? '').toString().compareTo((a['date'] ?? '').toString()));
             _activities = merged;
             _currentPage = data['data']['pagination']['page'];
@@ -170,6 +223,14 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       });
       _fetchHistory();
     }
+  }
+
+  void _changeEventFilter(String? eventId) {
+    setState(() {
+      _selectedEventId = (eventId == null || eventId.isEmpty) ? null : eventId;
+      _currentPage = 1;
+    });
+    _fetchHistory();
   }
 
   void _showError(String message) {
@@ -281,6 +342,38 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                 accentColor: primaryPurple,
                 selectedStatus: _selectedStatus,
                 onChanged: _changeFilter,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    isExpanded: true,
+                    value: _selectedEventId,
+                    hint: const Text('Filter By Event: Semua Event'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Semua Event'),
+                      ),
+                      ..._eventOptions.map((event) {
+                        final id = event['id']?.toString() ?? '';
+                        final name = event['name']?.toString() ?? 'Event';
+                        return DropdownMenuItem<String?>(
+                          value: id,
+                          child: Text(name, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: _changeEventFilter,
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               ModernSegmentFilterBar(
