@@ -1,0 +1,11 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://localhost:3001/api/v1}
+    container_name: seger-app-web
+    expose:
+      - "80"
+    restart: unless-stopped
