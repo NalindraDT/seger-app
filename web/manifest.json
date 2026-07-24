@@ -1,11 +1,11 @@
 {
-    "name": "pltuapp",
-    "short_name": "pltuapp",
+    "name": "SEGER",
+    "short_name": "SEGER",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Aplikasi projek PLTU run",
+    "background_color": "#5D44F8",
+    "theme_color": "#5D44F8",
+    "description": "SEGER - Aplikasi PLTU Run PLN IP UBP Jateng 2 Adipala",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

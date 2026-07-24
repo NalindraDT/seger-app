@@ -77,10 +77,15 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/icon_seger.png" # <-- Sesuaikan dengan path file logomu
-  adaptive_icon_background: "#5D44F8" # Mengisi area kosong dengan warna ungu tema-mu
+  image_path: "assets/images/icon_seger.png"
+  adaptive_icon_background: "#5D44F8"
   adaptive_icon_foreground: "assets/images/icon_seger.png"
-  min_sdk_android: 21 # Sesuaikan jika perlu
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/images/icon_seger.png"
+    background_color: "#5D44F8"
+    theme_color: "#5D44F8"
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
