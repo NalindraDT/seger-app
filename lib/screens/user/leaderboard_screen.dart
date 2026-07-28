@@ -22,6 +22,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   List<dynamic> _departmentItems = [];
   Map<String, dynamic>? _currentDepartmentStat;
   String _departmentPeriod = 'annual';
+  String _individualPeriod = 'annual';
 
   Map<String, dynamic>? _currentUserStat;
 
@@ -90,7 +91,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
       final myUserId = prefs.getString('userId');
 
       final response = await http.get(
-        Uri.parse('${ApiHelper.baseUrl}/leaderboard/annual?page=$_currentPage&limit=10'),
+        Uri.parse('${ApiHelper.baseUrl}/leaderboard/$_individualPeriod?page=$_currentPage&limit=10'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -235,6 +236,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     _fetchDepartmentLeaderboard();
   }
 
+  void _changeIndividualPeriod(String period) {
+    if (_individualPeriod == period) return;
+    setState(() {
+      _individualPeriod = period;
+      _currentPage = 1;
+    });
+    _fetchLeaderboard();
+  }
+
+  String _individualPeriodLabel() {
+    switch (_individualPeriod) {
+      case 'daily':
+        return 'Harian';
+      case 'weekly':
+        return 'Mingguan';
+      case 'monthly':
+        return 'Bulanan';
+      default:
+        return 'Tahunan';
+    }
+  }
+
   String _departmentPeriodLabel() {
     switch (_departmentPeriod) {
       case 'daily':
@@ -340,19 +363,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            _isDepartmentTab ? 'Departemen Paling Aktif' : 'Leaderboard Tahunan',
+                            _isDepartmentTab ? 'Departemen Paling Aktif' : 'Leaderboard ${_individualPeriodLabel()}',
                             style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF2D2D2D)
                             ),
                           ),
-                          if (_isDepartmentTab)
-                            Text(
-                              'Periode ${_departmentPeriodLabel()}',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                            ),
-                          Stack(),
+                          Text(
+                            'Periode ${_isDepartmentTab ? _departmentPeriodLabel() : _individualPeriodLabel()}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
                         ],
                       ),
                     ),
@@ -371,7 +392,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                         ],
                       ),
                     ),
-                    if (_isDepartmentTab) _buildDepartmentPeriodFilter(),
+                    _buildPeriodFilter(),
                     const SizedBox(height: 12),
                     if (!_isDepartmentTab) _buildPodium(topThree) else _buildDepartmentPodium(topThree),
                     const SizedBox(height: 20),
@@ -490,11 +511,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     );
   }
 
-  Widget _buildDepartmentPeriodFilter() {
+  Widget _buildPeriodFilter() {
+    final selectedValue = _isDepartmentTab ? _departmentPeriod : _individualPeriod;
+    final onChanged = _isDepartmentTab ? _changeDepartmentPeriod : _changeIndividualPeriod;
+
     return ModernSegmentFilterBar(
       accentColor: primaryPurple,
-      selectedValue: _departmentPeriod,
-      onChanged: _changeDepartmentPeriod,
+      selectedValue: selectedValue,
+      onChanged: onChanged,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       options: const [
         ModernFilterOption('daily', 'Harian', Icons.today_rounded),

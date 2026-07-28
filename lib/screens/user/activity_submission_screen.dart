@@ -285,14 +285,30 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
       request.fields['activity_type_id'] = _selectedActivityTypeId!;
       request.fields['activity_date'] = activityDate;
       request.fields['distance_km'] = _fieldValue('distance_km', fallback: '0');
-      request.fields['duration_minutes'] = _fieldValue('duration_minutes', fallback: '1');
+
+      // Map custom 'duration' key (from custom input_fields) to duration_minutes DB column
+      if (_fieldControllers.containsKey('duration')) {
+        request.fields['duration_minutes'] = _fieldValue('duration', fallback: '1');
+      } else {
+        request.fields['duration_minutes'] = _fieldValue('duration_minutes', fallback: '1');
+      }
       request.fields['duration_seconds'] = _fieldValue('duration_seconds', fallback: '0');
-      for (final key in ['calories', 'steps', 'elevation_m']) {
-        final value = _fieldValue(key, fallback: '');
-        if (value.isNotEmpty) {
-          request.fields[key] = value;
+
+      // Build submission_data JSON from all custom input field values
+      final Map<String, dynamic> submissionData = {};
+      for (final field in _activeInputFields) {
+        final key = field['key'].toString();
+        if (!['distance_km', 'duration_minutes', 'duration_seconds'].contains(key)) {
+          final value = _fieldValue(key, fallback: '');
+          if (value.isNotEmpty) {
+            submissionData[key] = num.tryParse(value);
+          }
         }
       }
+      if (submissionData.isNotEmpty) {
+        request.fields['submission_data'] = jsonEncode(submissionData);
+      }
+
       request.fields['recorded_via'] = _selectedRecordedVia!;
       request.fields['source_link'] = _linkController.text;
 
