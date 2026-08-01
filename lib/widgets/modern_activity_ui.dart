@@ -209,6 +209,8 @@ class ModernActivityCard extends StatelessWidget {
   final VoidCallback onTapDetail;
   final VoidCallback onTapImage;
   final String? eventName;
+  final VoidCallback? onCancel;
+  final VoidCallback? onEdit;
 
   const ModernActivityCard({
     super.key,
@@ -217,6 +219,8 @@ class ModernActivityCard extends StatelessWidget {
     required this.onTapDetail,
     required this.onTapImage,
     this.eventName,
+    this.onCancel,
+    this.onEdit,
   });
 
   static Color statusColor(String? status) {
@@ -242,6 +246,7 @@ class ModernActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = (item['status'] ?? 'UNKNOWN').toString();
+    final isPending = status.toUpperCase() == 'PENDING';
     final color = statusColor(status);
     final type = item['type']?.toString() ?? 'Aktivitas';
     final photo = item['proof_photo']?.toString() ?? '';
@@ -383,23 +388,56 @@ class ModernActivityCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Material(
-                                  color: accentColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: InkWell(
-                                    onTap: () {
-                                      ActivityShareHelper.showShareSheet(
-                                        context,
-                                        ActivityShareData.fromActivity(item, eventName: eventName),
-                                      );
-                                    },
+                                if (isPending && (onCancel != null || onEdit != null))
+                                  Column(
+                                    children: [
+                                      if (onCancel != null)
+                                        Material(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: InkWell(
+                                            onTap: onCancel,
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(7),
+                                              child: Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                                            ),
+                                          ),
+                                        ),
+                                      if (onCancel != null && onEdit != null) const SizedBox(height: 6),
+                                      if (onEdit != null)
+                                        Material(
+                                          color: accentColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: InkWell(
+                                            onTap: onEdit,
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(7),
+                                              child: Icon(Icons.edit_rounded, size: 16, color: accentColor),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  )
+                                else
+                                  Material(
+                                    color: accentColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(10),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(7),
-                                      child: Icon(Icons.ios_share_rounded, size: 16, color: accentColor),
+                                    child: InkWell(
+                                      onTap: () {
+                                        ActivityShareHelper.showShareSheet(
+                                          context,
+                                          ActivityShareData.fromActivity(item, eventName: eventName),
+                                        );
+                                      },
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(7),
+                                        child: Icon(Icons.ios_share_rounded, size: 16, color: accentColor),
+                                      ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ],

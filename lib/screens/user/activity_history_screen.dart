@@ -303,6 +303,52 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     );
   }
 
+  Future<void> _cancelSubmission(dynamic item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Batalkan Pengajuan'),
+        content: const Text('Yakin ingin membatalkan pengajuan ini? Tindakan ini tidak bisa dibatalkan.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Tidak')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Batalkan')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final id = item['id']?.toString();
+      final response = await http.delete(
+        Uri.parse('${ApiHelper.baseUrl}/activities/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        _currentPage = 1;
+        await _fetchHistory();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pengajuan berhasil dibatalkan.')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membatalkan pengajuan.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editSubmission(dynamic item) async {
+    final id = item['id']?.toString();
+    if (id == null) return;
+    Navigator.pushNamed(context, '/edit-activity', arguments: item);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -426,6 +472,8 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                                   _showDetailModal(item);
                                 }
                               },
+                              onCancel: () => _cancelSubmission(item),
+                              onEdit: () => _editSubmission(item),
                             );
                           },
                         ),
