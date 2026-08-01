@@ -343,12 +343,6 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     }
   }
 
-  Future<void> _editSubmission(dynamic item) async {
-    final id = item['id']?.toString();
-    if (id == null) return;
-    Navigator.pushNamed(context, '/edit-activity', arguments: item);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -473,7 +467,6 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                                 }
                               },
                               onCancel: () => _cancelSubmission(item),
-                              onEdit: () => _editSubmission(item),
                             );
                           },
                         ),
