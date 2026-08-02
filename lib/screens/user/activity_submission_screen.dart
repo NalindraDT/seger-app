@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/helpers/multipart_file_helper.dart';
+import 'package:pltuapp/helpers/number_input_helper.dart';
 import 'package:pltuapp/widgets/picked_image_preview.dart';
 
 class ActivitySubmissionScreen extends StatefulWidget {
@@ -102,9 +103,9 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
   }
 
   String _fieldValue(String key, {String fallback = '0'}) {
-    return _fieldControllers[key]?.text.trim().isNotEmpty == true
-        ? _fieldControllers[key]!.text.trim()
-        : fallback;
+    final raw = _fieldControllers[key]?.text.trim();
+    if (raw == null || raw.isEmpty) return fallback;
+    return normalizeDecimalInput(raw);
   }
 
   bool get _requiresSourceLink {
@@ -301,7 +302,7 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
         if (!['distance_km', 'duration_minutes', 'duration_seconds'].contains(key)) {
           final value = _fieldValue(key, fallback: '');
           if (value.isNotEmpty) {
-            submissionData[key] = num.tryParse(value);
+            submissionData[key] = parseLocalizedNumber(value);
           }
         }
       }
@@ -625,18 +626,32 @@ class _ActivitySubmissionScreenState extends State<ActivitySubmissionScreen> {
       widgets.add(const SizedBox(height: 8));
       widgets.add(TextFormField(
         controller: controller,
-        keyboardType: key == 'distance_km'
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.number,
+        keyboardType: key == 'duration_minutes' || key == 'duration_seconds'
+            ? TextInputType.number
+            : const TextInputType.numberWithOptions(decimal: true),
         decoration: _inputDecoration('0', suffix: unit?.toUpperCase(), icon: Icons.edit_outlined),
         validator: (value) {
           if (required && (value == null || value.trim().isEmpty)) {
             return 'Wajib diisi';
           }
-          if (key == 'duration_seconds' && value != null && value.isNotEmpty) {
-            final parsed = int.tryParse(value);
+          if (value == null || value.trim().isEmpty) return null;
+
+          if (key == 'duration_seconds') {
+            final parsed = parseLocalizedInt(value);
             if (parsed == null) return 'Harus angka';
             if (parsed < 0 || parsed > 59) return 'Detik harus 0-59';
+            return null;
+          }
+
+          if (key == 'duration_minutes' || key == 'duration') {
+            final parsed = parseLocalizedInt(value);
+            if (parsed == null) return 'Harus angka bulat';
+            if (parsed <= 0) return 'Harus lebih dari 0';
+            return null;
+          }
+
+          if (parseLocalizedNumber(value) == null) {
+            return 'Harus angka (boleh pakai koma atau titik)';
           }
           return null;
         },
