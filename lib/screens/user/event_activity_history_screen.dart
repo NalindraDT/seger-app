@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/screens/user/activity_edit_screen.dart';
 import 'package:pltuapp/widgets/modern_activity_ui.dart';
 
 class EventActivityHistoryScreen extends StatefulWidget {
@@ -183,6 +184,22 @@ class _EventActivityHistoryScreenState extends State<EventActivityHistoryScreen>
     );
   }
 
+  Future<void> _editSubmission(dynamic item) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => ActivityEditScreen(activityItem: item)),
+    );
+    if (result == true) {
+      _currentPage = 1;
+      await _fetchHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aktivitas berhasil diperbarui.')),
+        );
+      }
+    }
+  }
+
   Future<void> _cancelSubmission(dynamic item) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -305,6 +322,7 @@ class _EventActivityHistoryScreenState extends State<EventActivityHistoryScreen>
                                     _showDetailModal(item);
                                   }
                                 },
+                                onEdit: () => _editSubmission(item),
                                 onCancel: () => _cancelSubmission(item),
                               );
                             },
