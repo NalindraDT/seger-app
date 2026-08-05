@@ -203,6 +203,8 @@ class ModernActivityFilterBar extends StatelessWidget {
   }
 }
 
+enum _ActivityCardAction { edit, cancel, share }
+
 class ModernActivityCard extends StatelessWidget {
   final dynamic item;
   final Color accentColor;
@@ -246,7 +248,6 @@ class ModernActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = (item['status'] ?? 'UNKNOWN').toString();
-    final isPending = status.toUpperCase() == 'PENDING';
     final color = statusColor(status);
     final type = item['type']?.toString() ?? 'Aktivitas';
     final photo = item['proof_photo']?.toString() ?? '';
@@ -388,74 +389,7 @@ class ModernActivityCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                if (isPending)
-                                  Column(
-                                    children: [
-                                      if (onEdit != null)
-                                        Material(
-                                          color: accentColor.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: InkWell(
-                                            onTap: onEdit,
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(7),
-                                              child: Icon(Icons.edit_rounded, size: 16, color: accentColor),
-                                            ),
-                                          ),
-                                        ),
-                                      if (onEdit != null) const SizedBox(height: 6),
-                                      if (onCancel != null)
-                                        Material(
-                                          color: Colors.red.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: InkWell(
-                                            onTap: onCancel,
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(7),
-                                              child: Icon(Icons.close_rounded, size: 16, color: Colors.red),
-                                            ),
-                                          ),
-                                        ),
-                                      if (onCancel != null) const SizedBox(height: 6),
-                                      Material(
-                                        color: accentColor.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: InkWell(
-                                          onTap: () {
-                                            ActivityShareHelper.showShareSheet(
-                                              context,
-                                              ActivityShareData.fromActivity(item, eventName: eventName),
-                                            );
-                                          },
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(7),
-                                            child: Icon(Icons.ios_share_rounded, size: 16, color: accentColor),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                else if (status.toUpperCase() == 'APPROVED')
-                                  Material(
-                                    color: accentColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: InkWell(
-                                      onTap: () {
-                                        ActivityShareHelper.showShareSheet(
-                                          context,
-                                          ActivityShareData.fromActivity(item, eventName: eventName),
-                                        );
-                                      },
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(7),
-                                        child: Icon(Icons.ios_share_rounded, size: 16, color: accentColor),
-                                      ),
-                                    ),
-                                  ),
+                                _buildActionsMenu(context, status),
                               ],
                             ),
                           ],
@@ -468,6 +402,84 @@ class ModernActivityCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionsMenu(BuildContext context, String status) {
+    final statusUpper = status.toUpperCase();
+    final isPending = statusUpper == 'PENDING';
+    final showEdit = isPending && onEdit != null;
+    final showCancel = isPending && onCancel != null;
+    final showShare = isPending || statusUpper == 'APPROVED';
+
+    if (!showEdit && !showCancel && !showShare) {
+      return const SizedBox.shrink();
+    }
+
+    return Material(
+      color: accentColor.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(10),
+      child: PopupMenuButton<_ActivityCardAction>(
+        tooltip: 'Aksi',
+        padding: EdgeInsets.zero,
+        offset: const Offset(0, 40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        icon: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(Icons.more_vert_rounded, size: 18, color: accentColor),
+        ),
+        onSelected: (action) {
+          switch (action) {
+            case _ActivityCardAction.edit:
+              onEdit?.call();
+              break;
+            case _ActivityCardAction.cancel:
+              onCancel?.call();
+              break;
+            case _ActivityCardAction.share:
+              ActivityShareHelper.showShareSheet(
+                context,
+                ActivityShareData.fromActivity(item, eventName: eventName),
+              );
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          if (showEdit)
+            PopupMenuItem(
+              value: _ActivityCardAction.edit,
+              child: Row(
+                children: [
+                  Icon(Icons.edit_rounded, size: 18, color: accentColor),
+                  const SizedBox(width: 10),
+                  const Text('Edit', style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          if (showCancel)
+            const PopupMenuItem(
+              value: _ActivityCardAction.cancel,
+              child: Row(
+                children: [
+                  Icon(Icons.close_rounded, size: 18, color: Colors.red),
+                  SizedBox(width: 10),
+                  Text('Batalkan', style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          if (showShare)
+            PopupMenuItem(
+              value: _ActivityCardAction.share,
+              child: Row(
+                children: [
+                  Icon(Icons.ios_share_rounded, size: 18, color: accentColor),
+                  const SizedBox(width: 10),
+                  const Text('Bagikan', style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

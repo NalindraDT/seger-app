@@ -32,9 +32,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   int _exp = 0;
   int _streakDays = 0;
 
-  double _todayDistance = 0.0;
-  int _todayDuration = 0;
-  int _todayActivities = 0;
+  double _weekDistance = 0.0;
+  int _weekDuration = 0;
+  int _weekActivities = 0;
 
   List<dynamic> _activeEvents = [];
   final PageController _eventPageController = PageController(viewportFraction: 0.88);
@@ -208,9 +208,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         }
       }
 
-      // 4. Fetch Data History untuk HARI INI
+      // 4. Fetch Data History untuk MINGGU INI (Senin–Minggu)
+      final now = DateTime.now();
+      final weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+      final weekEnd = weekStart.add(const Duration(days: 6));
+      final dateFrom = weekStart.toIso8601String().split('T').first;
+      final dateTo = weekEnd.toIso8601String().split('T').first;
+
       final historyResponse = await http.get(
-        Uri.parse('${ApiHelper.baseUrl}/activities/history?page=1&limit=50'),
+        Uri.parse('${ApiHelper.baseUrl}/activities/history?page=1&limit=100&scope=annual&date_from=$dateFrom&date_to=$dateTo'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (!_checkAuth(historyResponse)) return;
@@ -219,23 +225,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final historyData = jsonDecode(historyResponse.body);
         if (historyData['success'] == true) {
           List<dynamic> items = historyData['data']['activity_items'] ?? [];
-          String todayStr = DateTime.now().toString().split(' ')[0];
 
           double tempDistance = 0.0;
           int tempDuration = 0;
           int tempCount = 0;
 
           for (var item in items) {
-            if (item['date'] == todayStr && item['status'] != 'REJECTED') {
+            if (item['status'] != 'REJECTED') {
               tempDistance += double.tryParse(item['distance_km'].toString()) ?? 0.0;
               tempDuration += double.tryParse(item['duration_minutes'].toString())?.toInt() ?? 0;
               tempCount += 1;
             }
           }
 
-          _todayDistance = tempDistance;
-          _todayDuration = tempDuration;
-          _todayActivities = tempCount;
+          _weekDistance = tempDistance;
+          _weekDuration = tempDuration;
+          _weekActivities = tempCount;
         }
       }
 
@@ -552,7 +557,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               const SizedBox(height: 24),
 
-              // --- CARD 1: RINGKASAN HARI INI DENGAN STREAK ---
+              // --- CARD 1: RINGKASAN MINGGU INI DENGAN STREAK ---
               Container(
                 width: double.infinity,
                 height: 200, // Diperbesar sedikit agar pas dengan judul baru
@@ -571,7 +576,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       top: 16,
                       left: 20,
                       child: Text(
-                        'Statistik Hari Ini',
+                        'Statistik Minggu Ini',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -632,17 +637,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           ),
                           const SizedBox(width: 20),
 
-                          // AREA STATISTIK HARI INI
+                          // AREA STATISTIK MINGGU INI
                           Expanded(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildStatItem(Icons.location_on, '$_todayDistance KM', 'JARAK', Colors.amber),
+                                _buildStatItem(Icons.location_on, '$_weekDistance KM', 'JARAK', Colors.amber),
                                 const SizedBox(height: 8),
-                                _buildStatItem(Icons.access_time_filled, '$_todayDuration Menit', 'DURASI', Colors.orange),
+                                _buildStatItem(Icons.access_time_filled, '$_weekDuration Menit', 'DURASI', Colors.orange),
                                 const SizedBox(height: 8),
-                                _buildStatItem(Icons.assignment, '$_todayActivities', 'AKTIFITAS', Colors.teal),
+                                _buildStatItem(Icons.assignment, '$_weekActivities', 'AKTIFITAS', Colors.teal),
                               ],
                             ),
                           ),
