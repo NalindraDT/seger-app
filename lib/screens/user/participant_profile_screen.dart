@@ -389,6 +389,7 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
                           item: item,
                           accentColor: primaryPurple,
                           eventName: item['event_name']?.toString(),
+                          showActionsMenu: false,
                           onTapDetail: () => _showActivityDetail(item),
                           onTapImage: () {
                             if (photo.isNotEmpty) {

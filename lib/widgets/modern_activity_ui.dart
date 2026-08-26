@@ -213,6 +213,7 @@ class ModernActivityCard extends StatelessWidget {
   final String? eventName;
   final VoidCallback? onCancel;
   final VoidCallback? onEdit;
+  final bool showActionsMenu;
 
   const ModernActivityCard({
     super.key,
@@ -223,6 +224,7 @@ class ModernActivityCard extends StatelessWidget {
     this.eventName,
     this.onCancel,
     this.onEdit,
+    this.showActionsMenu = true,
   });
 
   static Color statusColor(String? status) {
@@ -407,6 +409,10 @@ class ModernActivityCard extends StatelessWidget {
   }
 
   Widget _buildActionsMenu(BuildContext context, String status) {
+    if (!showActionsMenu) {
+      return const SizedBox.shrink();
+    }
+
     final statusUpper = status.toUpperCase();
     final isPending = statusUpper == 'PENDING';
     final showEdit = isPending && onEdit != null;
