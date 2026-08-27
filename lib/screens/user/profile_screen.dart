@@ -15,6 +15,8 @@ import 'package:pltuapp/screens/user/activity_history_screen.dart';
 import 'package:pltuapp/screens/user/streak_screen.dart';
 import 'package:pltuapp/screens/user/points_history_screen.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
+import 'package:pltuapp/helpers/strava_helper.dart';
+import 'package:pltuapp/widgets/strava_connect_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -47,6 +49,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   Map<String, dynamic>? _activeLevelBadge;
   Map<String, dynamic>? _streakBadge;
 
+  StravaStatus? _stravaStatus;
+  bool _stravaBusy = false;
+
   // --- VARIABEL NOTIFIKASI ---
   String? _notificationMessage;
   bool _isErrorNotification = true;
@@ -61,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchProfileData(showLoading: true);
+    _loadStravaStatus();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _fetchProfileData(showLoading: false);
     });
@@ -78,6 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _fetchProfileData(showLoading: false);
+      _loadStravaStatus();
     }
   }
 
@@ -120,6 +127,72 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       return false; // Token kedaluwarsa, hentikan proses
     }
     return true; // Token aman, lanjut
+  }
+
+  Future<void> _loadStravaStatus() async {
+    try {
+      final status = await StravaHelper.fetchStatus();
+      if (mounted) setState(() => _stravaStatus = status);
+    } on StravaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _connectStrava() async {
+    setState(() => _stravaBusy = true);
+    try {
+      await StravaHelper.connect();
+      _showTopNotification('Selesaikan otorisasi di Strava, lalu kembali ke aplikasi.', isError: false);
+    } on StravaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+        return;
+      }
+      _showTopNotification(error.message, isError: true);
+    } catch (_) {
+      _showTopNotification('Gagal membuka Strava', isError: true);
+    } finally {
+      if (mounted) setState(() => _stravaBusy = false);
+    }
+  }
+
+  Future<void> _disconnectStrava() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Putuskan Strava', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Akun Strava akan dilepas. Anda bisa menghubungkannya lagi kapan saja.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE9005C)),
+            child: const Text('Putuskan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _stravaBusy = true);
+    try {
+      await StravaHelper.disconnect();
+      await _loadStravaStatus();
+      _showTopNotification('Akun Strava berhasil diputuskan.', isError: false);
+    } on StravaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+        return;
+      }
+      _showTopNotification(error.message, isError: true);
+    } catch (_) {
+      _showTopNotification('Gagal memutuskan Strava', isError: true);
+    } finally {
+      if (mounted) setState(() => _stravaBusy = false);
+    }
   }
 
   // ===========================================================================
@@ -849,6 +922,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
                   // --- CARD 4: STREAK BADGE ---
                   _buildStreakBadgeCard(),
+
+                  const SizedBox(height: 20),
+
+                  StravaConnectCard(
+                    status: _stravaStatus,
+                    isBusy: _stravaBusy,
+                    onConnect: _connectStrava,
+                    onDisconnect: _disconnectStrava,
+                  ),
 
                   const SizedBox(height: 30), // Beri jarak agak jauh
 

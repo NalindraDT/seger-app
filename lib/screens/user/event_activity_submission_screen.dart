@@ -9,7 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/helpers/multipart_file_helper.dart';
 import 'package:pltuapp/helpers/number_input_helper.dart';
+import 'package:pltuapp/helpers/strava_helper.dart';
 import 'package:pltuapp/widgets/picked_image_preview.dart';
+import 'package:pltuapp/widgets/strava_activity_picker.dart';
 
 class EventActivitySubmissionScreen extends StatefulWidget {
   final String eventId; // Menerima ID event
@@ -25,7 +27,7 @@ class EventActivitySubmissionScreen extends StatefulWidget {
   State<EventActivitySubmissionScreen> createState() => _EventActivitySubmissionScreenState();
 }
 
-class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionScreen> {
+class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
 
   // Controller input text
@@ -51,6 +53,9 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   XFile? _imageFile;
   bool _isLoadingSubmit = false;
   DateTime _selectedActivityDate = DateTime.now();
+  StravaStatus? _stravaStatus;
+  StravaActivity? _selectedStravaActivity;
+  bool _stravaBusy = false;
 
   // --- VARIABEL NOTIFIKASI MENGAMBANG ---
   String? _notificationMessage;
@@ -60,17 +65,27 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchEventAndTypes();
+    _loadStravaStatus();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final controller in _fieldControllers.values) {
       controller.dispose();
     }
     _linkController.dispose();
     _notificationTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadStravaStatus();
+    }
   }
 
   Map<String, dynamic>? get _selectedAllowedConfig {
@@ -130,9 +145,12 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
     return normalizeDecimalInput(raw);
   }
 
+  bool get _isStravaRecorded => _selectedRecordedVia?.toLowerCase() == 'strava';
+  bool get _stravaConnected => _stravaStatus?.connected == true;
+
   bool get _requiresSourceLink {
-    return _activeInputFields.any((field) => field['key'] == 'source_link') ||
-        _selectedRecordedVia?.toLowerCase() == 'strava';
+    if (_isStravaRecorded && _stravaConnected) return false;
+    return _activeInputFields.any((field) => field['key'] == 'source_link') || _isStravaRecorded;
   }
 
   Widget? _buildRestrictionHint() {
@@ -178,6 +196,86 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       return false; // Token mati
     }
     return true; // Token aman
+  }
+
+  Future<void> _loadStravaStatus() async {
+    try {
+      final status = await StravaHelper.fetchStatus();
+      if (mounted) setState(() => _stravaStatus = status);
+    } on StravaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _connectStrava() async {
+    setState(() => _stravaBusy = true);
+    try {
+      await StravaHelper.connect();
+      _showTopNotification('Selesaikan otorisasi di Strava, lalu kembali ke aplikasi.', isError: false);
+    } on StravaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+        return;
+      }
+      _showTopNotification(error.message, isError: true);
+    } catch (_) {
+      _showTopNotification('Gagal membuka Strava', isError: true);
+    } finally {
+      if (mounted) setState(() => _stravaBusy = false);
+    }
+  }
+
+  Future<void> _pickStravaActivity() async {
+    final selected = await showStravaActivityPicker(context: context, accentColor: widget.themeColor);
+    if (selected == null || !mounted) return;
+    _applyStravaActivity(selected);
+  }
+
+  void _applyStravaActivity(StravaActivity activity) {
+    _syncFieldControllers();
+    _fieldControllers['distance_km']?.text = activity.distanceKm.toString();
+    _fieldControllers['duration_minutes']?.text = activity.durationMinutes.toString();
+    _fieldControllers['duration']?.text = activity.durationMinutes.toString();
+    _fieldControllers['duration_seconds']?.text = activity.durationSeconds.toString();
+    if (activity.calories != null) {
+      _fieldControllers['calories']?.text = activity.calories!.round().toString();
+    }
+    if (activity.elevationM != null) {
+      _fieldControllers['elevation_m']?.text = activity.elevationM!.round().toString();
+    }
+
+    String? matchedTypeId;
+    for (final item in _activityTypes) {
+      final code = item['code']?.toString() ?? '';
+      final name = item['name']?.toString() ?? '';
+      if (StravaHelper.matchesSportGroup(code, name, activity.sportGroup)) {
+        matchedTypeId = item['id'].toString();
+        break;
+      }
+    }
+
+    DateTime activityDate;
+    try {
+      activityDate = DateTime.parse(activity.activityDate);
+    } catch (_) {
+      activityDate = DateTime.now();
+    }
+
+    setState(() {
+      _selectedStravaActivity = activity;
+      _linkController.text = activity.sourceLink;
+      _selectedActivityDate = activityDate;
+      if (matchedTypeId != null) {
+        _selectedActivityTypeId = matchedTypeId;
+        _syncFieldControllers();
+        _fieldControllers['distance_km']?.text = activity.distanceKm.toString();
+        _fieldControllers['duration_minutes']?.text = activity.durationMinutes.toString();
+        _fieldControllers['duration']?.text = activity.durationMinutes.toString();
+        _fieldControllers['duration_seconds']?.text = activity.durationSeconds.toString();
+      }
+    });
   }
 
   Future<void> _fetchEventAndTypes() async {
@@ -287,6 +385,11 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       return;
     }
 
+    if (_isStravaRecorded && _stravaConnected && _selectedStravaActivity == null) {
+      _showTopNotification('Pilih aktivitas Strava terlebih dahulu!', isError: true);
+      return;
+    }
+
     if (_imageFile == null) {
       _showTopNotification('Upload bukti foto terlebih dahulu!', isError: true);
       return;
@@ -319,6 +422,9 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
       }
       request.fields['recorded_via'] = _selectedRecordedVia!; // Pakai nilai dropdown
       request.fields['source_link'] = _linkController.text;
+      if (_selectedStravaActivity != null) {
+        request.fields['strava_activity_id'] = _selectedStravaActivity!.id.toString();
+      }
 
       request.files.add(await multipartFileFromXFile('proof_photo', _imageFile!));
 
@@ -408,6 +514,7 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
                     style: const TextStyle(color: Color(0xFF2D2D2D), fontSize: 14, fontWeight: FontWeight.w500),
                     decoration: _inputDecoration('Pilih Aktivitas', icon: Icons.directions_run_outlined),
                     // -----------------------------
+                    value: _selectedActivityTypeId,
                     items: _activityTypes.map<DropdownMenuItem<String>>((item) {
                       return DropdownMenuItem<String>(
                         value: item['id'].toString(),
@@ -446,11 +553,26 @@ class _EventActivitySubmissionScreenState extends State<EventActivitySubmissionS
                     onChanged: (val) {
                       setState(() {
                         _selectedRecordedVia = val;
+                        if (val?.toLowerCase() != 'strava') {
+                          _selectedStravaActivity = null;
+                        }
                       });
+                      if (val?.toLowerCase() == 'strava') {
+                        _loadStravaStatus();
+                      }
                     },
                     validator: (value) => value == null ? 'Wajib dipilih' : null,
                   ),
                   const SizedBox(height: 20),
+
+                  if (_isStravaRecorded)
+                    StravaActivitySelectField(
+                      connected: _stravaConnected,
+                      isBusy: _stravaBusy,
+                      selected: _selectedStravaActivity,
+                      onConnect: _connectStrava,
+                      onPick: _pickStravaActivity,
+                    ),
 
                   const Text('Tanggal Aktivitas', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
