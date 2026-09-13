@@ -8,6 +8,7 @@ import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/helpers/multipart_file_helper.dart';
 import 'package:pltuapp/helpers/number_input_helper.dart';
 import 'package:pltuapp/widgets/picked_image_preview.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ActivityEditScreen extends StatefulWidget {
@@ -447,7 +448,12 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
                           : (_existingPhotoUrl != null && _existingPhotoUrl!.isNotEmpty)
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(_existingPhotoUrl!, height: 150, fit: BoxFit.cover),
+                                  child: AppNetworkImage(
+                                    url: _existingPhotoUrl!,
+                                    cssWidth: MediaQuery.sizeOf(context).width,
+                                    height: 150,
+                                    fit: BoxFit.cover,
+                                  ),
                                 )
                               : Column(
                                   children: [

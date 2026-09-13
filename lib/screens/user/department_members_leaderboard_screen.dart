@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/screens/user/participant_profile_screen.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class DepartmentMembersLeaderboardScreen extends StatefulWidget {
   final String departmentId;
@@ -149,8 +150,9 @@ class _DepartmentMembersLeaderboardScreenState extends State<DepartmentMembersLe
 
   Widget _buildAvatarImage(String avatarUrl, double radius) {
     return ClipOval(
-      child: Image.network(
-        avatarUrl,
+      child: AppNetworkImage(
+        url: avatarUrl,
+        cssWidth: radius * 2,
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,

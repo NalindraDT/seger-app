@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pltuapp/models/activity_share_data.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class ActivityShareCard extends StatelessWidget {
   final ActivityShareData data;
@@ -127,8 +128,9 @@ class ActivityShareCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: Image.network(
-                      data.proofPhotoUrl!,
+                    child: AppNetworkImage(
+                      url: data.proofPhotoUrl!,
+                      cssWidth: 1280,
                       fit: BoxFit.cover,
                       errorBuilder: (c, e, s) => Container(
                         color: Colors.white.withValues(alpha: 0.1),

@@ -8,6 +8,7 @@ import 'package:pltuapp/screens/user/event_leaderboard_screen.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -494,8 +495,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // --- WIDGET AVATAR DENGAN FALLBACK IKON JIKA GAMBAR GAGAL DIMUAT ---
   Widget _buildAvatarImage(String avatarUrl, double radius) {
     return ClipOval(
-      child: Image.network(
-        avatarUrl,
+      child: AppNetworkImage(
+        url: avatarUrl,
+        cssWidth: radius * 2,
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,
@@ -684,7 +686,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       fit: StackFit.expand,
       children: [
         if (imageUrl.isNotEmpty)
-          Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _themeColor))
+          AppNetworkImage(
+            url: imageUrl,
+            cssWidth: MediaQuery.sizeOf(context).width,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: _themeColor),
+          )
         else
           Container(
             decoration: BoxDecoration(
@@ -828,8 +835,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   radius: hasCrown ? 34 : 26,
                   backgroundColor: Colors.white,
                   child: ClipOval(
-                    child: Image.network(
-                      avatarUrl,
+                    child: AppNetworkImage(
+                      url: avatarUrl,
+                      cssWidth: hasCrown ? 66 : 50,
                       width: hasCrown ? 66 : 50,
                       height: hasCrown ? 66 : 50,
                       fit: BoxFit.cover,

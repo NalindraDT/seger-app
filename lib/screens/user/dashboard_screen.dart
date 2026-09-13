@@ -13,6 +13,7 @@ import 'package:pltuapp/screens/user/badge_tiers_screen.dart';
 import 'package:pltuapp/screens/user/notifications_screen.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -948,8 +949,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               fit: StackFit.expand,
               children: [
                 imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
+                    ? AppNetworkImage(
+                        url: imageUrl,
+                        cssWidth: MediaQuery.sizeOf(context).width,
                         fit: BoxFit.cover,
                         errorBuilder: (c, e, s) => Container(
                           color: eventColor.withOpacity(0.2),

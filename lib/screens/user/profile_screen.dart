@@ -15,6 +15,7 @@ import 'package:pltuapp/screens/user/activity_history_screen.dart';
 import 'package:pltuapp/screens/user/streak_screen.dart';
 import 'package:pltuapp/screens/user/points_history_screen.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 import 'package:pltuapp/helpers/strava_helper.dart';
 import 'package:pltuapp/widgets/strava_connect_card.dart';
 
@@ -787,7 +788,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     child: CircleAvatar(
                                       backgroundColor: Colors.grey.shade200,
                                       backgroundImage: _profilePhotoUrl != null
-                                          ? NetworkImage(_profilePhotoUrl!)
+                                          ? sizedImageProvider(_profilePhotoUrl!, 75)
                                           : NetworkImage('https://ui-avatars.com/api/?name=$_fullName&background=ffffff&color=5D44F8') as ImageProvider,
                                     ),
                                   ),

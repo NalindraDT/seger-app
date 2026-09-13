@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/widgets/badge_network_image.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 import 'package:pltuapp/widgets/modern_activity_ui.dart';
 
 class ParticipantProfileScreen extends StatefulWidget {
@@ -250,7 +251,7 @@ class _ParticipantProfileScreenState extends State<ParticipantProfileScreen> {
                           CircleAvatar(
                             radius: 36,
                             backgroundColor: Colors.white,
-                            backgroundImage: NetworkImage(avatarUrl),
+                            backgroundImage: sizedImageProvider(avatarUrl, 72),
                           ),
                           const SizedBox(width: 16),
                           Expanded(

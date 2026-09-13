@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // --- IMPORT API HELPER ---
 import 'package:pltuapp/helpers/api_helper.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class RewardScreen extends StatefulWidget {
   const RewardScreen({Key? key}) : super(key: key);
@@ -518,8 +519,9 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                item['image'] ?? '',
+                              child: AppNetworkImage(
+                                url: item['image'] ?? '',
+                                cssWidth: 50,
                                 width: 50, height: 50, fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) => Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)),
                               ),
@@ -650,8 +652,9 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                imageUrl,
+                              child: AppNetworkImage(
+                                url: imageUrl,
+                                cssWidth: 50,
                                 width: 50, height: 50, fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) => Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)),
                               ),
@@ -895,8 +898,8 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 70, height: 70, color: Colors.grey.shade100,
-              child: Image.network(
-                imageUrl, fit: BoxFit.cover,
+              child: AppNetworkImage(
+                url: imageUrl, cssWidth: 70, fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueAccent, child: Center(child: Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)))),
               ),
             ),
@@ -986,8 +989,9 @@ class _RewardScreenState extends State<RewardScreen> with SingleTickerProviderSt
                     width: 50,
                     height: 50,
                     color: Colors.grey.shade100,
-                    child: Image.network(
-                      imageUrl,
+                    child: AppNetworkImage(
+                      url: imageUrl,
+                      cssWidth: 50,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(

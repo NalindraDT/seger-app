@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pltuapp/helpers/activity_display_metrics.dart';
 import 'package:pltuapp/helpers/activity_share_helper.dart';
 import 'package:pltuapp/models/activity_share_data.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class ModernActivityStatsHeader extends StatelessWidget {
   final Color accentColor;
@@ -301,8 +302,9 @@ class ModernActivityCard extends StatelessWidget {
                                   width: 68,
                                   height: 68,
                                   child: photo.isNotEmpty
-                                      ? Image.network(
-                                          photo,
+                                      ? AppNetworkImage(
+                                          url: photo,
+                                          cssWidth: 68,
                                           fit: BoxFit.cover,
                                           errorBuilder: (_, __, ___) => _photoFallback(compact: true),
                                         )
@@ -639,8 +641,9 @@ Future<void> showModernActivityDetailSheet({
                     borderRadius: BorderRadius.circular(18),
                     child: AspectRatio(
                       aspectRatio: 4 / 3,
-                      child: Image.network(
-                        item['proof_photo']?.toString() ?? '',
+                      child: AppNetworkImage(
+                        url: item['proof_photo']?.toString() ?? '',
+                        cssWidth: 1080,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.grey.shade200,

@@ -6,6 +6,7 @@ import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/screens/user/participant_profile_screen.dart';
 import 'package:pltuapp/screens/user/department_members_leaderboard_screen.dart';
 import 'package:pltuapp/widgets/modern_activity_ui.dart';
+import 'package:pltuapp/widgets/app_network_image.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -302,8 +303,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   // --- WIDGET AVATAR DENGAN FALLBACK IKON JIKA GAMBAR GAGAL DIMUAT ---
   Widget _buildAvatarImage(String avatarUrl, double radius) {
     return ClipOval(
-      child: Image.network(
-        avatarUrl,
+      child: AppNetworkImage(
+        url: avatarUrl,
+        cssWidth: radius * 2,
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,

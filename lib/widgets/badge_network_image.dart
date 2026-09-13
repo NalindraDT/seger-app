@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_network_image.dart';
+
 enum BadgeImageKind { tier, streak }
 
 /// Default badge icons from Twemoji CDN (jsDelivr) when API image is missing or broken.
@@ -67,8 +69,9 @@ class BadgeNetworkImage extends StatelessWidget {
     final defaultUrl = BadgeDefaults.urlFor(kind);
     final primaryUrl = trimmed;
 
-    Widget image = Image.network(
-      primaryUrl,
+    Widget image = AppNetworkImage(
+      url: primaryUrl,
+      cssWidth: width ?? height,
       width: width,
       height: height,
       fit: fit,
