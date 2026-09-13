@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -156,10 +157,42 @@ class StravaHelper {
       throw const StravaApiException(500, 'URL otorisasi Strava tidak tersedia');
     }
     final uri = Uri.parse(url);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Di web url_launcher_web hanya mendukung platformDefault (mode lain
+    // diabaikan dan tetap membuka tab baru), jadi pakai platformDefault.
+    final launched = await launchUrl(
+      uri,
+      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+    );
     if (!launched) {
       throw const StravaApiException(500, 'Tidak bisa membuka Strava');
     }
+    // Di web tidak ada event lifecycle resume setelah user otorisasi di tab
+    // Strava, jadi status dipoll sampai terhubung (atau timeout).
+    if (kIsWeb) {
+      await pollUntilConnected(() async => (await fetchStatus()).connected);
+    }
+  }
+
+  /// Poll [probe] setiap [interval] sampai bernilai true, berhenti lebih awal
+  /// saat sudah terhubung. Berhenti (tanpa throw) setelah [timeout] tercapai
+  /// agar caller tetap bisa me-refresh status walau user lambat.
+  @visibleForTesting
+  static Future<bool> pollUntilConnected(
+    Future<bool> Function() probe, {
+    Duration interval = const Duration(seconds: 2),
+    Duration timeout = const Duration(minutes: 2),
+    Future<void> Function(Duration) sleep = Future<void>.delayed,
+  }) async {
+    final attempts = (timeout.inMilliseconds / interval.inMilliseconds).ceil();
+    for (var i = 0; i < attempts; i++) {
+      await sleep(interval);
+      try {
+        if (await probe()) return true;
+      } catch (_) {
+        // Abaikan error sementara selama proses otorisasi berlangsung.
+      }
+    }
+    return false;
   }
 
   static Future<void> disconnect() async {

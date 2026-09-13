@@ -145,6 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     setState(() => _stravaBusy = true);
     try {
       await StravaHelper.connect();
+      await _loadStravaStatus();
       _showTopNotification('Selesaikan otorisasi di Strava, lalu kembali ke aplikasi.', isError: false);
     } on StravaApiException catch (error) {
       if (error.statusCode == 401) {
