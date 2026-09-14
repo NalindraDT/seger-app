@@ -143,7 +143,7 @@ class StravaHelper {
   static Future<void> connect() async {
     final token = await _token();
     final response = await http.get(
-      Uri.parse('${ApiHelper.baseUrl}/strava/authorize'),
+      Uri.parse('${ApiHelper.baseUrl}/strava/authorize?platform=${kIsWeb ? 'web' : 'mobile'}'),
       headers: _headers(token),
     );
     if (response.statusCode == 401) {
