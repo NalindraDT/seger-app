@@ -1,0 +1,12 @@
+# Override lokal untuk `docker-compose.web.yml`.
+# Compose tidak memuat file ini otomatis karena nama file utamanya bukan
+# `docker-compose.yml`, jadi jalankan dengan:
+#
+#   docker compose -f docker-compose.web.yml -f docker-compose.web.override.yml up -d --build
+#
+# Isinya hanya mem-publish port 80 container (yang di web.yml hanya `expose`)
+# supaya versi web bisa dibuka dari browser host.
+services:
+  web:
+    ports:
+      - '8080:80'
