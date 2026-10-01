@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pltuapp/helpers/api_helper.dart';
 import 'package:pltuapp/helpers/multipart_file_helper.dart';
 import 'package:pltuapp/helpers/number_input_helper.dart';
+import 'package:pltuapp/helpers/recorded_via_helper.dart';
 import 'package:pltuapp/widgets/picked_image_preview.dart';
 import 'package:pltuapp/widgets/app_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,7 +36,7 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
   bool _isLoadingTypes = true;
   String? _selectedActivityTypeId;
   String? _selectedRecordedVia;
-  final List<String> _recordedViaOptions = ['Strava', 'Smartwatch', 'Manual'];
+  List<RecordedViaOption> _recordedViaOptions = [];
   XFile? _imageFile;
   bool _isLoadingSubmit = false;
   late DateTime _selectedActivityDate;
@@ -52,15 +53,14 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
     super.initState();
     final item = widget.activityItem;
     _selectedActivityTypeId = item['activity_type_id']?.toString();
-    final recorded = item['recorded_via']?.toString() ?? '';
-    if (recorded.isNotEmpty) {
-      _selectedRecordedVia = recorded[0].toUpperCase() + recorded.substring(1);
-    }
+    final recorded = item['recorded_via']?.toString();
+    _selectedRecordedVia = (recorded == null || recorded.isEmpty) ? null : recorded;
     _linkController.text = item['source_link']?.toString() ?? '';
     _existingPhotoUrl = item['proof_photo']?.toString();
     final dateStr = item['date']?.toString() ?? '';
     _selectedActivityDate = DateTime.tryParse(dateStr) ?? DateTime.now();
     _fetchActivityTypes();
+    _fetchRecordedViaOptions();
   }
 
   @override
@@ -134,9 +134,15 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
     return normalizeDecimalInput(raw);
   }
 
+  RecordedViaOption? get _selectedViaOption =>
+      RecordedViaHelper.findByCode(_recordedViaOptions, _selectedRecordedVia);
+
+  bool get _isStravaRecorded => RecordedViaHelper.isStrava(_selectedRecordedVia);
+
   bool get _requiresSourceLink {
     return _activeInputFields.any((field) => field['key'] == 'source_link') ||
-        _selectedRecordedVia?.toLowerCase() == 'strava';
+        _isStravaRecorded ||
+        (_selectedViaOption?.requiresSourceLink ?? false);
   }
 
   void _showTopNotification(String message, {bool isError = true}) {
@@ -156,6 +162,28 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
       return false;
     }
     return true;
+  }
+
+  // --- Fungsi mengambil opsi "Dicatat Dengan" dari API ---
+  Future<void> _fetchRecordedViaOptions() async {
+    try {
+      final options = await RecordedViaHelper.fetchOptions();
+      if (!mounted) return;
+      setState(() {
+        // Nilai record lama tetap ditampilkan walau opsinya sudah nonaktif/dihapus admin.
+        _recordedViaOptions = RecordedViaHelper.withCurrentValue(options, _selectedRecordedVia);
+        _selectedRecordedVia ??= RecordedViaHelper.findByCode(options, RecordedViaHelper.stravaCode)?.code ??
+            (options.isNotEmpty ? options.first.code : null);
+      });
+    } on RecordedViaApiException catch (error) {
+      if (error.statusCode == 401) {
+        ApiHelper.showSessionExpiredModal();
+        return;
+      }
+      _showTopNotification(error.message, isError: true);
+    } catch (_) {
+      _showTopNotification('Gagal memuat opsi pencatatan', isError: true);
+    }
   }
 
   Future<void> _fetchActivityTypes() async {
@@ -390,9 +418,23 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
                     isExpanded: true,
                     value: _selectedRecordedVia,
                     decoration: _inputDecoration('Pilih metode pencatatan', icon: Icons.watch_outlined),
-                    items: _recordedViaOptions
-                        .map((value) => DropdownMenuItem<String>(value: value, child: Text(value)))
-                        .toList(),
+                    items: _recordedViaOptions.map((option) {
+                      final isStrava = RecordedViaHelper.isStrava(option.code);
+                      return DropdownMenuItem<String>(
+                        value: option.code,
+                        child: Row(
+                          children: [
+                            Icon(
+                              RecordedViaHelper.iconFor(option.icon),
+                              size: 18,
+                              color: isStrava ? RecordedViaHelper.stravaColor : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(child: Text(option.label, overflow: TextOverflow.ellipsis)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                     onChanged: (val) => setState(() => _selectedRecordedVia = val),
                     validator: (value) => value == null ? 'Wajib dipilih' : null,
                   ),
@@ -414,7 +456,11 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
                   ..._buildDynamicInputFields(),
                   if (_requiresSourceLink) ...[
                     Text(
-                      _selectedRecordedVia?.toLowerCase() == 'strava' ? 'Link Strava (Wajib)' : 'Link Sumber (Opsional)',
+                      _isStravaRecorded
+                          ? 'Link Strava (Wajib)'
+                          : (_selectedViaOption?.requiresSourceLink ?? false)
+                              ? 'Link Sumber (Wajib)'
+                              : 'Link Sumber (Opsional)',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
@@ -423,8 +469,9 @@ class _ActivityEditScreenState extends State<ActivityEditScreen> {
                       keyboardType: TextInputType.url,
                       decoration: _inputDecoration('https://strava.app.link/xxxxxx', icon: Icons.link),
                       validator: (value) {
-                        if (_selectedRecordedVia?.toLowerCase() == 'strava' && (value == null || value.trim().isEmpty)) {
-                          return 'Link Strava wajib diisi';
+                        final isRequired = _isStravaRecorded || (_selectedViaOption?.requiresSourceLink ?? false);
+                        if (isRequired && (value == null || value.trim().isEmpty)) {
+                          return _isStravaRecorded ? 'Link Strava wajib diisi' : 'Link sumber wajib diisi';
                         }
                         return null;
                       },
